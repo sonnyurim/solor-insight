@@ -3,8 +3,7 @@
 
 export const BEDROCK_MODELS = {
   // 의도 분류용 - 단순 JSON 분류, 빠른 속도, 저비용
-  // Cross-region inference profile 사용
-  CLASSIFIER: "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+  CLASSIFIER: "qwen.qwen3-coder-30b-a3b-v1:0",
 
   // 응답 생성용 (추후 구현) - 복잡한 응답, 고품질 필요
   RESPONDER: "us.anthropic.claude-sonnet-4-20250514-v1:0",

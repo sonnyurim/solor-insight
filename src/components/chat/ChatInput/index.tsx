@@ -11,12 +11,13 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 자동 높이 조절
+  // 자동 높이 조절 (최대 3줄, 약 96px)
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+      const maxHeight = 96;
+      textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
     }
   }, [input]);
 
@@ -39,9 +40,10 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+      className="flex-shrink-0 border-t border-border bg-white px-4 py-2"
     >
-      <div className="flex items-end gap-3 max-w-4xl mx-auto">
+      <div className="flex items-end gap-3">
+        {/* 입력 필드 */}
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -51,13 +53,16 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             placeholder="메시지를 입력하세요..."
             disabled={disabled}
             rows={1}
-            className="w-full resize-none overflow-hidden rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full resize-none rounded-[24px] bg-surface border-0 px-4 py-3 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-solar-orange/30 disabled:opacity-50 disabled:cursor-not-allowed overflow-y-auto scrollbar-hide"
           />
         </div>
+
+        {/* 전송 버튼 */}
         <button
           type="submit"
           disabled={disabled || !input.trim()}
-          className="flex-shrink-0 h-11 w-11 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white disabled:text-zinc-500 transition-colors flex items-center justify-center disabled:cursor-not-allowed"
+          className="flex-shrink-0 w-10 h-10 mb-0.5 rounded-full bg-solar-orange hover:bg-solar-orange/90 disabled:bg-surface disabled:text-text-muted text-white transition-colors flex items-center justify-center disabled:cursor-not-allowed"
+          aria-label="전송"
         >
           <svg
             className="w-5 h-5"
@@ -74,9 +79,6 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           </svg>
         </button>
       </div>
-      <p className="text-xs text-zinc-400 text-center mt-2">
-        Enter로 전송, Shift + Enter로 줄바꿈
-      </p>
     </form>
   );
 }

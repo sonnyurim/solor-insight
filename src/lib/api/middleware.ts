@@ -14,10 +14,10 @@ type RouteHandler<T = unknown> = (
  */
 function formatZodErrors(error: ZodError): Record<string, string[]> {
   const details: Record<string, string[]> = {};
-  error.errors.forEach((err) => {
-    const path = err.path.join(".");
+  error.issues.forEach((issue) => {
+    const path = issue.path.join(".");
     if (!details[path]) details[path] = [];
-    details[path].push(err.message);
+    details[path].push(issue.message);
   });
   return details;
 }

@@ -1,0 +1,1 @@
+export { SolarAvatar } from "./SolarAvatar";

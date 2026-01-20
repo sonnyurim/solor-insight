@@ -3,221 +3,118 @@
 import {
   createContext,
   useContext,
-  useState,
-  useCallback,
+  useReducer,
   type ReactNode,
+  type Dispatch,
 } from "react";
-import type {
-  Message,
-  ClassificationResult,
-  RevenueCalculationResult,
-} from "@/lib/chat/types";
-import { GUARDRAIL_MESSAGES } from "@/lib/chat/types";
-import {
-  classifyMessageApi,
-  processCalculatorApi,
-} from "@/lib/chat/actions";
+import type { Message, ClassificationResult } from "@/lib/chat/types";
 
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
+// ==================== 상태 타입 ====================
 
-// Context 타입
-interface ChatContextType {
+/**
+ * 채팅 상태
+ */
+export interface ChatState {
   messages: Message[];
   isLoading: boolean;
   error: string | null;
   lastResult: ClassificationResult | null;
-  sendMessage: (content: string) => Promise<void>;
-  clearMessages: () => void;
 }
 
-// Context 생성
+// ==================== 액션 타입 ====================
+
+/**
+ * 채팅 액션 (SRP: 상태 변경만 정의)
+ */
+export type ChatAction =
+  | { type: "ADD_MESSAGE"; payload: Message }
+  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "SET_ERROR"; payload: string | null }
+  | { type: "SET_LAST_RESULT"; payload: ClassificationResult | null }
+  | { type: "CLEAR_ALL" };
+
+// ==================== 초기 상태 ====================
+
+const initialState: ChatState = {
+  messages: [],
+  isLoading: false,
+  error: null,
+  lastResult: null,
+};
+
+// ==================== 리듀서 ====================
+
+/**
+ * 채팅 리듀서 (SRP: 상태 변경 로직만 담당)
+ */
+function chatReducer(state: ChatState, action: ChatAction): ChatState {
+  switch (action.type) {
+    case "ADD_MESSAGE":
+      return {
+        ...state,
+        messages: [...state.messages, action.payload],
+      };
+    case "SET_LOADING":
+      return {
+        ...state,
+        isLoading: action.payload,
+      };
+    case "SET_ERROR":
+      return {
+        ...state,
+        error: action.payload,
+      };
+    case "SET_LAST_RESULT":
+      return {
+        ...state,
+        lastResult: action.payload,
+      };
+    case "CLEAR_ALL":
+      return initialState;
+    default:
+      return state;
+  }
+}
+
+// ==================== Context 타입 ====================
+
+/**
+ * Context 타입 (상태 + dispatch만 제공)
+ */
+interface ChatContextType {
+  state: ChatState;
+  dispatch: Dispatch<ChatAction>;
+}
+
+// ==================== Context 생성 ====================
+
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Provider Props
+// ==================== Provider ====================
+
 interface ChatProviderProps {
   children: ReactNode;
 }
 
 /**
  * Chat Context Provider
- * 채팅 상태와 메시지 처리 로직을 관리
+ * SRP: 상태 관리만 담당 (비즈니스 로직은 Hook으로 분리)
  */
 export function ChatProvider({ children }: ChatProviderProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<ClassificationResult | null>(
-    null
-  );
-
-  const sendMessage = useCallback(async (content: string) => {
-    setError(null);
-
-    // 사용자 메시지 추가
-    const userMessage: Message = {
-      id: generateId(),
-      role: "user",
-      content,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-
-    try {
-      // Server Action 호출 - 의도 분류
-      const result = await classifyMessageApi(content);
-      setLastResult(result);
-
-      // 봇 응답 메시지 생성
-      let botMessage: Message;
-
-      if (!result.success) {
-        // 에러 발생
-        setError(result.error || "알 수 없는 오류");
-        botMessage = {
-          id: generateId(),
-          role: "assistant",
-          content: "죄송합니다. 처리 중 오류가 발생했습니다.",
-          timestamp: new Date(),
-        };
-      } else if (result.blocked) {
-        // 차단됨
-        const botContent =
-          result.blockMessage || GUARDRAIL_MESSAGES[result.blockType!];
-        botMessage = {
-          id: generateId(),
-          role: "assistant",
-          content: botContent,
-          timestamp: new Date(),
-          blocked: true,
-          blockType: result.blockType,
-        };
-      } else if (
-        result.intents?.includes("CALCULATOR") &&
-        result.intents.length === 1
-      ) {
-        // CALCULATOR 의도가 단독으로 확정된 경우 - 수익 계산 수행
-        const calcResult = await processCalculatorApi(content);
-
-        if (!calcResult.success) {
-          // 계산 오류
-          setError(calcResult.error || "계산 중 오류가 발생했습니다.");
-          botMessage = {
-            id: generateId(),
-            role: "assistant",
-            content: "죄송합니다. 계산 중 오류가 발생했습니다.",
-            timestamp: new Date(),
-            classification: {
-              isMulti: false,
-              intents: ["CALCULATOR"],
-              confidence: result.confidence || "HIGH",
-              scores: result.scores,
-              reason: result.reason,
-            },
-          };
-        } else if (calcResult.needsMoreInfo) {
-          // 추가 정보 필요
-          botMessage = {
-            id: generateId(),
-            role: "assistant",
-            content: calcResult.followUpQuestion || "추가 정보가 필요합니다.",
-            timestamp: new Date(),
-            classification: {
-              isMulti: false,
-              intents: ["CALCULATOR"],
-              confidence: result.confidence || "HIGH",
-              scores: result.scores,
-              reason: "필수 파라미터 누락",
-            },
-          };
-        } else {
-          // 계산 완료
-          botMessage = {
-            id: generateId(),
-            role: "assistant",
-            content: "예상 수익을 계산했습니다.",
-            timestamp: new Date(),
-            classification: {
-              isMulti: false,
-              intents: ["CALCULATOR"],
-              confidence: result.confidence || "HIGH",
-              scores: result.scores,
-              reason: result.reason,
-            },
-            calculationResult: calcResult.result as RevenueCalculationResult,
-          };
-        }
-      } else {
-        // 기타 의도 - 기존 로직
-        const intentNames = result.intents?.join(", ") || "GENERAL";
-        const isMultiText = result.isMulti ? " (복합 의도)" : "";
-
-        const botContent = `질문이 [${intentNames}]${isMultiText}로 분류되었습니다.\n\n${
-          result.reason ? `📝 ${result.reason}` : ""
-        }\n\n(응답 생성 기능은 추후 구현 예정입니다)`;
-
-        botMessage = {
-          id: generateId(),
-          role: "assistant",
-          content: botContent,
-          timestamp: new Date(),
-          classification: {
-            isMulti: result.isMulti || false,
-            intents: result.intents || ["GENERAL"],
-            confidence: result.confidence || "LOW",
-            scores: result.scores,
-            reason: result.reason,
-          },
-        };
-      }
-
-      setMessages((prev) => [...prev, botMessage]);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setError(errorMessage);
-
-      // 에러 메시지 추가
-      const errorBotMessage: Message = {
-        id: generateId(),
-        role: "assistant",
-        content: "죄송합니다. 처리 중 오류가 발생했습니다.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorBotMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-    setError(null);
-    setLastResult(null);
-  }, []);
+  const [state, dispatch] = useReducer(chatReducer, initialState);
 
   return (
-    <ChatContext.Provider
-      value={{
-        messages,
-        isLoading,
-        error,
-        lastResult,
-        sendMessage,
-        clearMessages,
-      }}
-    >
+    <ChatContext.Provider value={{ state, dispatch }}>
       {children}
     </ChatContext.Provider>
   );
 }
 
+// ==================== Hook ====================
+
 /**
- * Chat Context Hook
- * ChatProvider 내부에서만 사용 가능
+ * Chat Context Hook (raw)
+ * 상태와 dispatch만 반환
  */
 export function useChatContext() {
   const context = useContext(ChatContext);
@@ -225,4 +122,41 @@ export function useChatContext() {
     throw new Error("useChatContext must be used within ChatProvider");
   }
   return context;
+}
+
+// ==================== 유틸리티 ====================
+
+/**
+ * 고유 ID 생성
+ */
+export function generateMessageId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+}
+
+/**
+ * 사용자 메시지 생성 헬퍼
+ */
+export function createUserMessage(content: string): Message {
+  return {
+    id: generateMessageId(),
+    role: "user",
+    content,
+    timestamp: new Date(),
+  };
+}
+
+/**
+ * 봇 메시지 생성 헬퍼
+ */
+export function createBotMessage(
+  content: string,
+  options?: Partial<Omit<Message, "id" | "role" | "timestamp">>
+): Message {
+  return {
+    id: generateMessageId(),
+    role: "assistant",
+    content,
+    timestamp: new Date(),
+    ...options,
+  };
 }

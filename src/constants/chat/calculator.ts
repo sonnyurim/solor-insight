@@ -4,6 +4,15 @@
 export const DEFAULT_UTILIZATION_RATE = 0.15; // 기본 이용률 15%
 export const DEFAULT_REC_WEIGHT = 1.2; // 기본 REC 가중치
 
+// 폴백용 기본값
+export const DEFAULT_SMP = 110; // 원/kWh (DB 조회 실패 시)
+export const DEFAULT_REC = 70000; // 원/REC (API 조회 실패 시)
+
+// 가중치 자동 판단 기준
+export const REC_WEIGHT_THRESHOLD_KW = 100; // 기준 용량 (kW)
+export const DEFAULT_REC_WEIGHT_SMALL = 1.2; // 100kW 미만
+export const DEFAULT_REC_WEIGHT_LARGE = 1.0; // 100kW 이상
+
 // 시간 상수
 export const HOURS_PER_DAY = 24; // 일 시간
 export const DAYS_PER_YEAR = 365; // 연 일수
@@ -25,8 +34,11 @@ export const VALIDATION_RANGES = {
 export const DISCLAIMER =
   "⚠️ 단순 참고용 계산이며 실제 수익을 보장하지 않습니다 (VAT 별도)";
 
-// 필수 파라미터 목록
-export const REQUIRED_PARAMS = [
+// 필수 파라미터 목록 (폴백 로직 적용 - 용량만 필수)
+export const REQUIRED_PARAMS = ["capacity_kw"] as const;
+
+// 기존 필수 파라미터 목록 (폴백 미적용 시)
+export const REQUIRED_PARAMS_LEGACY = [
   "rec_price",
   "smp_price",
   "capacity_kw",

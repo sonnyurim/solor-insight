@@ -1,48 +1,40 @@
 import { NextRequest } from "next/server";
 import { withValidation } from "@/lib/api/middleware";
 import { apiSuccess, ApiErrors } from "@/lib/api/response";
-import { extractAndValidateParameters } from "@/lib/chat/parameter-extractor";
-import { calculate } from "@/lib/chat/calculators";
+import { handleCalculatorIntent } from "@/lib/services/calculator";
 import { ChatInputSchema } from "@/lib/validations/chat";
-import { CalculatorInputSchema } from "@/lib/validations/calculator";
 
 /**
  * POST /api/chat/calculate
  * 수익 계산을 수행합니다.
+ *
+ * SRP: 요청 파싱 + 서비스 위임 + 응답 반환만 담당
+ * DIP: CalculatorService를 통해 비즈니스 로직 처리
  */
 export const POST = withValidation(
   ChatInputSchema,
-  async (request: NextRequest, context, data) => {
-    // 파라미터 추출
-    const extractionResult = extractAndValidateParameters(data.message);
+  async (_request: NextRequest, _context, data) => {
+    if (!data) {
+      return ApiErrors.badRequest("요청 데이터가 없습니다.");
+    }
 
-    // 필수값 누락 시 추가 질문 반환
-    if (!extractionResult.complete) {
+    // 서비스에 위임
+    const result = await handleCalculatorIntent(data.message);
+
+    // 추가 질문 필요
+    if (result.type === "question") {
       return apiSuccess({
         success: true,
         needsMoreInfo: true,
-        followUpQuestion: extractionResult.followUpQuestion,
-        extracted: extractionResult.extracted,
+        followUpQuestion: result.message,
       });
     }
 
-    // 추출된 파라미터 검증
-    const paramsValidation = CalculatorInputSchema.safeParse(
-      extractionResult.params
-    );
-    if (!paramsValidation.success) {
-      const firstError = paramsValidation.error.issues[0];
-      return ApiErrors.validationError({
-        params: [firstError?.message || "입력값이 유효하지 않습니다."],
-      });
-    }
-
-    // 계산 수행
-    const calculationResult = calculate(paramsValidation.data);
-
+    // 계산 완료
     return apiSuccess({
       success: true,
-      result: calculationResult,
+      result: result.data,
+      sources: result.sources,
     });
   }
 );

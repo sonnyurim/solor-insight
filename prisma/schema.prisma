@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 세션/대화 관리 (MVP - 비로그인)
+// ============================================
+
+model Session {
+  id           String         @id @default(uuid()) @map("session_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  lastActiveAt DateTime       @default(now()) @map("last_active_at")
+  deletedAt    DateTime?      @map("deleted_at")
+  conversations Conversation[]
+
+  @@map("sessions")
+}
+
+model Conversation {
+  id        BigInt    @id @default(autoincrement()) @map("conversation_id")
+  sessionId String    @map("session_id")
+  role      String    @db.VarChar(20) // user | assistant
+  content   String    @db.Text
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  session   Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("conversations")
+}
+
+// ============================================
+// 시장 가격 (SMP)
+// ============================================
+
+model SmpPriceHourly {
+  id         BigInt    @id @default(autoincrement()) @map("price_id")
+  priceDate  DateTime  @map("price_date") @db.Date
+  hour       Int       @db.SmallInt // 1~24
+  priceValue Decimal   @map("price_value") @db.Decimal(10, 2)
+  regionType String    @map("region_type") @db.VarChar(10) // 육지 | 제주
+  createdAt  DateTime  @default(now()) @map("created_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  @@unique([priceDate, hour, regionType])
+  @@index([regionType, priceDate])
+  @@map("smp_prices_hourly")
+}
+
+model SmpPriceDaily {
+  id         BigInt    @id @default(autoincrement()) @map("price_id")
+  priceDate  DateTime  @map("price_date") @db.Date
+  maxPrice   Decimal   @map("max_price") @db.Decimal(10, 2)
+  minPrice   Decimal   @map("min_price") @db.Decimal(10, 2)
+  avgPrice   Decimal   @map("avg_price") @db.Decimal(10, 2) // 가중평균
+  regionType String    @map("region_type") @db.VarChar(10) // 육지 | 제주
+  createdAt  DateTime  @default(now()) @map("created_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  @@unique([priceDate, regionType])
+  @@index([regionType, priceDate])
+  @@map("smp_prices_daily")
+}
+
+model SmpPriceMonthly {
+  id         BigInt    @id @default(autoincrement()) @map("price_id")
+  priceMonth DateTime  @map("price_month") @db.Date // YYYY-MM-01
+  smpLand    Decimal   @map("smp_land") @db.Decimal(10, 2) // 육지 SMP
+  smpJeju    Decimal   @map("smp_jeju") @db.Decimal(10, 2) // 제주 SMP
+  smpTotal   Decimal   @map("smp_total") @db.Decimal(10, 2) // 통합 SMP
+  blmp       Decimal   @map("blmp") @db.Decimal(10, 2) // 연계선 한계가격
+  createdAt  DateTime  @default(now()) @map("created_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  @@unique([priceMonth])
+  @@index([priceMonth])
+  @@map("smp_prices_monthly")
+}

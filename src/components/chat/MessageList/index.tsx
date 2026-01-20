@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Message } from "@/lib/chat/types";
 import { MessageBubble } from "@/components/chat/MessageBubble";
+import { SolarAvatar } from "@/components/common";
 
 interface MessageListProps {
   messages: Message[];
@@ -18,30 +19,32 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
   }, [messages]);
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-6">
+    <div className="h-full overflow-y-auto px-4 py-6 bg-white">
       {messages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-center">
-          <div className="w-16 h-16 mb-4 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-            <svg
-              className="w-8 h-8 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-              />
-            </svg>
+        <div className="flex flex-col pt-4">
+          {/* 첫 번째 환영 메시지 */}
+          <div className="flex justify-start mb-4">
+            <div className="flex-shrink-0 mr-2 mt-1">
+              <SolarAvatar size="md" />
+            </div>
+            <div className="max-w-[80%] px-4 py-3 bg-surface text-text-primary rounded-[16px] rounded-tl-[4px]">
+              <p className="text-base leading-relaxed">
+                솔라가이드가 데이터 기반으로 도와드릴게요.
+              </p>
+            </div>
           </div>
-          <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-            태양광 발전 정보 챗봇
-          </h3>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-sm">
-            발전량 추이, 수익 계산, 전력시장 참여 절차에 대해 질문해 보세요.
-          </p>
+
+          {/* 두 번째 메시지 */}
+          <div className="flex justify-start mb-4">
+            <div className="flex-shrink-0 mr-2 mt-1">
+              <SolarAvatar size="md" />
+            </div>
+            <div className="max-w-[80%] px-4 py-3 bg-surface text-text-primary rounded-[16px] rounded-tl-[4px]">
+              <p className="text-base leading-relaxed">
+                어떤 정보가 필요하신가요? :)
+              </p>
+            </div>
+          </div>
         </div>
       ) : (
         <>
@@ -51,21 +54,24 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
         </>
       )}
 
-      {/* 로딩 표시 */}
+      {/* 로딩 표시 (타이핑 인디케이터) */}
       {isLoading && (
         <div className="flex justify-start mb-4">
-          <div className="bg-zinc-100 dark:bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3">
+          <div className="flex-shrink-0 mr-2 mt-1">
+            <SolarAvatar size="md" />
+          </div>
+          <div className="bg-surface rounded-[16px] rounded-tl-[4px] px-4 py-3">
             <div className="flex space-x-1.5">
               <span
-                className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce"
+                className="w-2 h-2 bg-solar-orange/50 rounded-full animate-bounce"
                 style={{ animationDelay: "0ms" }}
               />
               <span
-                className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce"
+                className="w-2 h-2 bg-solar-orange/50 rounded-full animate-bounce"
                 style={{ animationDelay: "150ms" }}
               />
               <span
-                className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce"
+                className="w-2 h-2 bg-solar-orange/50 rounded-full animate-bounce"
                 style={{ animationDelay: "300ms" }}
               />
             </div>

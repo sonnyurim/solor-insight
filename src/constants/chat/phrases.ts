@@ -15,6 +15,7 @@ export const STRONG_PHRASES: Record<
     "발전량 비교",
   ],
   CALCULATOR: [
+    "매출 계산",
     "수익 계산",
     "수익 얼마",
     "rec 얼마",
@@ -23,6 +24,21 @@ export const STRONG_PHRASES: Record<
     "smp 단가",
     "rec 가격",
     "smp 가격",
+    // 구어체 추가 (Phase 1)
+    "깔면 얼마",
+    "돌리면 얼마",
+    "나와",
+    "벌어",
+    // 기간 변형 (Phase 1)
+    "월 수익",
+    "연 수익",
+    "하루 매출",
+    "년 수익",
+    // 역산형 추가 (Phase 2)
+    "벌려면 몇",
+    "목표 수익",
+    "필요 용량",
+    "kw 필요",
   ],
   PROCEDURE: [
     "참여 방법",
@@ -36,6 +52,22 @@ export const STRONG_PHRASES: Record<
     "rec 발급",
   ],
 };
+
+// ==================== 역산형 강한 구문 (Phase 2) ====================
+
+/**
+ * 역산형 감지 강한 구문
+ * 이 구문이 포함되면 역산 모드로 확정
+ */
+export const REVERSE_PHRASES = [
+  "벌려면 몇",
+  "목표 수익",
+  "필요 용량",
+  "kw 필요",
+  "mw 필요",
+  "얼마나 깔아야",
+  "설비 얼마나",
+] as const;
 
 /**
  * 모든 강한 구문을 의도와 매핑

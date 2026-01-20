@@ -43,5 +43,5 @@ next-env.d.ts
 # cursor
 .cursor
 
-# plan
-/plan
+# docs
+/docs

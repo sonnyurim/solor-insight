@@ -59,6 +59,7 @@ export interface Message {
   blocked?: boolean;
   blockType?: GuardrailType;
   calculationResult?: RevenueCalculationResult;
+  reverseCalculationResult?: ReverseCalculationResult; // Phase 2: 역산 결과
 }
 
 // 분류 결과 (Server Action 반환)
@@ -105,6 +106,26 @@ export interface LLMClassificationResult {
 
 // ==================== 수익 계산기 타입 ====================
 
+// 기간 타입 (Phase 1)
+export type PeriodType = "daily" | "monthly" | "yearly";
+
+export interface PeriodInfo {
+  type: PeriodType;
+  count: number; // 몇 일/월/년
+}
+
+// 계산 모드 (Phase 1) - 부분 계산 지원
+export type CalculationMode = "full" | "smp_only" | "rec_only" | "rec_ratio";
+
+// 계산기 서브 인텐트 (Phase 2) - 정방향/역방향 구분
+export type CalculatorSubIntent = "FORWARD" | "REVERSE";
+
+// 역산 목표 타입 (Phase 2)
+export interface ReverseTarget {
+  targetRevenue: number; // 목표 수익 (원)
+  period: PeriodInfo; // 수익 기간 (연/월/일)
+}
+
 // 계산기 입력값
 export interface CalculatorInput {
   rec_price: number;
@@ -121,7 +142,40 @@ export interface ExtractedParameters {
   capacity_kw?: number;
   utilization_rate?: number;
   rec_weight?: number;
+  userInput?: string; // 원본 사용자 입력 (지역 판별용)
+  period?: PeriodInfo; // 기간 정보 (Phase 1)
+  calculationMode?: CalculationMode; // 계산 모드 (Phase 1)
+  subIntent?: CalculatorSubIntent; // 서브 인텐트 (Phase 2)
+  reverseTarget?: ReverseTarget; // 역산 목표 (Phase 2)
 }
+
+// 데이터 출처 정보
+export interface DataSources {
+  smp: SourceInfo;
+  rec: SourceInfo;
+}
+
+export interface SourceInfo {
+  type: "user" | "db" | "api" | "default";
+  label: string; // UI 표시용 (예: "최근 7일 평균", "현물시장 최신가")
+  date?: string; // 데이터 기준일 (YYYYMMDD 또는 YYYY-MM-DD)
+}
+
+// 폴백 적용된 파라미터 (계산 준비 완료)
+export interface ResolvedCalculatorParams {
+  capacityKw: number;
+  smpPrice: number;
+  recPrice: number;
+  utilizationRate: number;
+  recWeight: number;
+  region: "육지" | "제주";
+  sources: DataSources;
+}
+
+// 파라미터 해결 결과
+export type ResolveResult =
+  | { success: true; params: ResolvedCalculatorParams }
+  | { success: false; question: string };
 
 // 누락된 파라미터 결과
 export interface MissingParamsResult {
@@ -150,15 +204,39 @@ export interface RevenueCalculationResult {
     rec_weight: number;
   };
   generation: {
+    daily_kwh?: number; // 일간 발전량 (Phase 1)
     monthly_kwh: number;
     yearly_kwh: number;
+    custom_kwh?: number; // 사용자 지정 기간 발전량 (Phase 1)
   };
   revenue: {
+    daily?: { smp: number; rec: number; total: number }; // 일간 수익 (Phase 1)
     monthly: { smp: number; rec: number; total: number };
     yearly: { smp: number; rec: number; total: number };
+    custom?: { smp: number; rec: number; total: number; periodLabel: string }; // 사용자 지정 기간 (Phase 1)
   };
   unit_price_per_kwh: number;
   disclaimer: string;
+  region?: "육지" | "제주"; // 계산 기준 지역
+  sources?: DataSources; // 데이터 출처 정보 (폴백 적용 시)
+  calculationMode?: CalculationMode; // 계산 모드 (Phase 1)
+  ratio?: { smp_percent: number; rec_percent: number }; // 수익 비중 (Phase 1)
+}
+
+// 역산 계산 결과 (Phase 2)
+export interface ReverseCalculationResult {
+  requiredCapacityKw: number; // 필요 용량 (kW)
+  targetRevenue: number; // 목표 수익
+  targetPeriod: PeriodInfo; // 목표 기간
+  input: {
+    rec_price: number;
+    smp_price: number;
+    utilization_rate: number;
+    rec_weight: number;
+  };
+  disclaimer: string;
+  region?: "육지" | "제주";
+  sources?: DataSources;
 }
 
 // ==================== API 요청/응답 타입 ====================
