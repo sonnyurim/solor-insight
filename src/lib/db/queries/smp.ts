@@ -49,8 +49,7 @@ export class SmpRepository implements ISmpRepository {
         recent.reduce((sum, r) => sum + Number(r.avgPrice), 0) / recent.length;
 
       return Math.round(avg * 100) / 100; // 소수점 2자리
-    } catch (error) {
-      console.error("SMP 조회 오류:", error);
+    } catch {
       return null;
     }
   }
@@ -77,8 +76,7 @@ export class SmpRepository implements ISmpRepository {
         price: Number(latest.avgPrice),
         date: latest.priceDate,
       };
-    } catch (error) {
-      console.error("SMP 조회 오류:", error);
+    } catch {
       return null;
     }
   }

@@ -56,7 +56,6 @@ export class RecRepository implements IRecRepository {
     region: RecRegionType = "육지"
   ): Promise<RecPriceResult | null> {
     if (!this.apiKey) {
-      console.warn("DATA_GO_KR_API_KEY 환경변수가 설정되지 않았습니다.");
       return null;
     }
 
@@ -74,12 +73,6 @@ export class RecRepository implements IRecRepository {
       });
 
       if (!countRes.ok) {
-        console.warn(
-          "REC API 응답 오류:",
-          countRes.status,
-          countRes.statusText,
-          "- 기본값 사용"
-        );
         return null;
       }
 
@@ -90,7 +83,6 @@ export class RecRepository implements IRecRepository {
       );
 
       if (totalCount === 0) {
-        console.warn("REC API 데이터 없음");
         return null;
       }
 
@@ -107,12 +99,6 @@ export class RecRepository implements IRecRepository {
       });
 
       if (!res.ok) {
-        console.warn(
-          "REC API 응답 오류:",
-          res.status,
-          res.statusText,
-          "- 기본값 사용"
-        );
         return null;
       }
 
@@ -124,11 +110,6 @@ export class RecRepository implements IRecRepository {
       // 에러 코드 체크
       const resultCode = response?.header?.resultCode;
       if (resultCode !== "00") {
-        console.error(
-          "REC API 에러 코드:",
-          resultCode,
-          response?.header?.resultMsg
-        );
         return null;
       }
 
@@ -137,7 +118,6 @@ export class RecRepository implements IRecRepository {
       const targetItem = Array.isArray(item) ? item[0] : item;
 
       if (!targetItem) {
-        console.error("REC API 데이터 없음");
         return null;
       }
 
@@ -151,7 +131,6 @@ export class RecRepository implements IRecRepository {
       }
 
       if (isNaN(price) || price <= 0) {
-        console.error("REC API 가격 파싱 실패:", targetItem);
         return null;
       }
 
@@ -160,8 +139,7 @@ export class RecRepository implements IRecRepository {
         date: targetItem.bzDd ?? "",
         region,
       };
-    } catch (error) {
-      console.error("REC API 호출 오류:", error);
+    } catch {
       return null;
     }
   }

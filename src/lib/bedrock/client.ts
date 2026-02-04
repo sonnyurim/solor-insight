@@ -115,7 +115,6 @@ function parseQwenResponse(responseBody: Record<string, unknown>): string {
     return responseBody.generation;
   }
 
-  console.error("Qwen 응답 구조 오류:", JSON.stringify(responseBody, null, 2));
   throw new Error(
     (responseBody.error as { message?: string })?.message ||
     (responseBody.message as string) ||
@@ -133,7 +132,6 @@ function parseClaudeResponse(responseBody: Record<string, unknown>): string {
   }> | undefined;
 
   if (!content || !Array.isArray(content) || content.length === 0) {
-    console.error("Claude 응답 구조 오류:", JSON.stringify(responseBody, null, 2));
     throw new Error(
       (responseBody.error as { message?: string })?.message ||
       (responseBody.message as string) ||

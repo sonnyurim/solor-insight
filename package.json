@@ -13,12 +13,18 @@
     "db:migrate:prod": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "collect:regions": "tsx scripts/fetch-region-master.ts",
+    "collect:power": "tsx scripts/collect-power-generation.ts",
+    "collect:irradiance": "tsx scripts/collect-irradiance.ts",
+    "calculate:estimated": "tsx scripts/calculate-estimated-power.ts",
+    "aggregate:daily": "tsx scripts/aggregate-daily.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.982.0",
     "@aws-sdk/client-bedrock-runtime": "^3.971.0",
     "@aws-sdk/credential-providers": "^3.971.0",
     "@prisma/client": "^5.22.0",
@@ -28,6 +34,7 @@
     "prisma": "^5.22.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "recharts": "^3.6.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {

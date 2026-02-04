@@ -60,6 +60,7 @@ export interface Message {
   blockType?: GuardrailType;
   calculationResult?: RevenueCalculationResult;
   reverseCalculationResult?: ReverseCalculationResult; // Phase 2: 역산 결과
+  generationTrendResult?: GenerationTrendResultData; // 발전량 추이 조회 결과
 }
 
 // 분류 결과 (Server Action 반환)
@@ -239,6 +240,45 @@ export interface ReverseCalculationResult {
   sources?: DataSources;
 }
 
+// ==================== 발전량 추이 조회 타입 ====================
+
+// 집계 유형
+export type AggregationType = "hourly" | "daily" | "weekly" | "monthly" | "day_of_week";
+
+// 데이터 유형 (실측/추정)
+export type GenerationDataType = "actual" | "estimated";
+
+// 표시 모드 (데이터 개수에 따라 결정)
+export type DisplayMode = "text" | "list" | "chart";
+
+// 출력 형식 (사용자 지정)
+export type OutputFormat = "chart" | "table" | null;
+
+// 발전량 추이 메타데이터
+export interface GenerationTrendMetadata {
+  region: string;
+  season: string;
+  year: number;
+  month?: number | null;
+  aggregations: AggregationType[];
+  sql: string;
+  explanation: string;
+  dataType: GenerationDataType;
+  disclaimer?: string;
+  chartType?: 'bar' | 'line' | null;
+  displayMode: DisplayMode; // 데이터 개수에 따른 표시 모드
+  outputFormat?: OutputFormat; // 사용자 지정 출력 형식 (table/chart)
+  showOnlyAverage?: boolean; // 평균만 표시 여부
+}
+
+// 발전량 추이 결과 데이터 (UI용)
+export interface GenerationTrendResultData {
+  results: Array<{
+    data: Record<string, unknown>[];
+    metadata: GenerationTrendMetadata;
+  }>;
+}
+
 // ==================== API 요청/응답 타입 ====================
 
 // 계산기 처리 결과 (Server Action 반환)
@@ -248,5 +288,21 @@ export interface CalculatorProcessResult {
   followUpQuestion?: string;
   extracted?: ExtractedParameters;
   result?: RevenueCalculationResult;
+  error?: string;
+}
+
+// ==================== RAG (Knowledge Base) 타입 ====================
+
+// RAG 인용 정보
+export interface RAGCitation {
+  text: string;
+  sourceUri?: string;
+}
+
+// RAG 응답
+export interface RAGResponse {
+  success: boolean;
+  answer?: string;
+  citations?: RAGCitation[];
   error?: string;
 }

@@ -39,12 +39,6 @@ export function withErrorHandler<T = unknown>(handler: RouteHandler<T>) {
     try {
       return await handler(request, context);
     } catch (error) {
-      console.error("[API Error]", {
-        path: request.nextUrl.pathname,
-        method: request.method,
-        error: error instanceof Error ? error.message : error,
-      });
-
       if (error instanceof ApiError) {
         return ApiErrors.badRequest(error.message, error.details);
       }

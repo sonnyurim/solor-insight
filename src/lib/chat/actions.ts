@@ -33,7 +33,6 @@ export async function processMessageApi(
     // ChatService에 위임
     return await chatService.processMessage(validation.data.message);
   } catch (error) {
-    console.error("processMessageApi 오류:", error);
     return {
       success: false,
       error:

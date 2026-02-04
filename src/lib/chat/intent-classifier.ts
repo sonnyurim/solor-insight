@@ -72,7 +72,6 @@ export async function classifyIntent(
       };
     } catch {
       // LLM 실패 시 가중치 점수화의 candidates를 fallback으로 사용
-      console.warn("LLM 분류 실패, fallback 사용");
 
       if (weightResult.candidates.length > 0) {
         return {
@@ -96,7 +95,6 @@ export async function classifyIntent(
       };
     }
   } catch (error) {
-    console.error("의도 분류 실패:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "알 수 없는 오류",

@@ -82,3 +82,143 @@ model SmpPriceMonthly {
   @@index([priceMonth])
   @@map("smp_prices_monthly")
 }
+
+// ============================================
+// 지역 마스터 (계층 구조: 광역시도 + 시군구)
+// ============================================
+
+model Region {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  type      String   @db.VarChar(20) // PROVINCE | CITY
+  parentId  BigInt?  @map("parent_id")
+  lat       Decimal? @db.Decimal(10, 7)
+  lon       Decimal? @db.Decimal(10, 7)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  parent    Region?  @relation("RegionHierarchy", fields: [parentId], references: [id])
+  children  Region[] @relation("RegionHierarchy")
+
+  generations  RawGeneration[]
+  irradiances  RawIrradiance[]
+  aggDaily     AggDaily[]
+  aggWeekly    AggWeekly[]
+  aggMonthly   AggMonthly[]
+
+  @@unique([name])
+  @@index([type])
+  @@index([parentId])
+  @@map("regions")
+}
+
+// ============================================
+// 발전량 원시 데이터
+// - 광역시도: is_estimated = false (API 실제 데이터)
+// - 시군구: is_estimated = true (추정 데이터)
+// ============================================
+
+model RawGeneration {
+  id            BigInt   @id @default(autoincrement())
+  regionId      BigInt   @map("region_id")
+  tradeDate     DateTime @map("trade_date") @db.Date
+  hour          Int      @db.SmallInt // 0~23
+  generationKwh Decimal  @map("generation_kwh") @db.Decimal(15, 4)
+  isEstimated   Boolean  @default(false) @map("is_estimated")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  region Region @relation(fields: [regionId], references: [id])
+
+  @@unique([regionId, tradeDate, hour])
+  @@index([tradeDate])
+  @@index([isEstimated])
+  @@index([regionId, tradeDate, isEstimated]) // 복합 인덱스: 지역별 기간 조회 최적화
+  @@map("raw_generation")
+}
+
+// ============================================
+// 일사량 원시 데이터 (기상청 API)
+// ============================================
+
+model RawIrradiance {
+  id        BigInt   @id @default(autoincrement())
+  regionId  BigInt   @map("region_id")
+  datetime  DateTime
+  ghi       Decimal  @db.Decimal(10, 3) // kW/m²
+  createdAt DateTime @default(now()) @map("created_at")
+
+  region Region @relation(fields: [regionId], references: [id])
+
+  @@unique([regionId, datetime])
+  @@index([datetime])
+  @@map("raw_irradiance")
+}
+
+// ============================================
+// 일별 집계
+// ============================================
+
+model AggDaily {
+  regionId    BigInt   @map("region_id")
+  date        DateTime @db.Date
+  totalKwh    Decimal  @map("total_kwh") @db.Decimal(15, 4)
+  avgKwh      Decimal  @map("avg_kwh") @db.Decimal(15, 4)
+  maxKwh      Decimal  @map("max_kwh") @db.Decimal(15, 4)
+  maxHour     Int?     @map("max_hour") @db.SmallInt
+  isEstimated Boolean  @default(false) @map("is_estimated")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  region Region @relation(fields: [regionId], references: [id])
+
+  @@id([regionId, date])
+  @@index([date])
+  @@index([isEstimated])
+  @@map("agg_daily")
+}
+
+// ============================================
+// 주별 집계
+// ============================================
+
+model AggWeekly {
+  regionId    BigInt   @map("region_id")
+  year        Int
+  weekNo      Int      @map("week_no") @db.SmallInt
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  totalKwh    Decimal  @map("total_kwh") @db.Decimal(15, 4)
+  avgKwh      Decimal  @map("avg_kwh") @db.Decimal(15, 4)
+  isEstimated Boolean  @default(false) @map("is_estimated")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  region Region @relation(fields: [regionId], references: [id])
+
+  @@id([regionId, year, weekNo])
+  @@index([year, weekNo])
+  @@index([isEstimated])
+  @@map("agg_weekly")
+}
+
+// ============================================
+// 월별 집계
+// ============================================
+
+model AggMonthly {
+  regionId    BigInt    @map("region_id")
+  year        Int
+  month       Int       @db.SmallInt
+  totalKwh    Decimal   @map("total_kwh") @db.Decimal(15, 4)
+  avgKwh      Decimal   @map("avg_kwh") @db.Decimal(15, 4)
+  maxDate     DateTime? @map("max_date") @db.Date
+  maxKwh      Decimal?  @map("max_kwh") @db.Decimal(15, 4)
+  season      String?   @db.VarChar(10) // SPRING, SUMMER, FALL, WINTER
+  isEstimated Boolean   @default(false) @map("is_estimated")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  region Region @relation(fields: [regionId], references: [id])
+
+  @@id([regionId, year, month])
+  @@index([year, month])
+  @@index([season])
+  @@index([isEstimated])
+  @@map("agg_monthly")
+}

@@ -3,6 +3,7 @@
 import type { Message } from "@/lib/chat/types";
 import { RevenueReport } from "@/components/chat/RevenueReport";
 import { ReverseReport } from "@/components/chat/ReverseReport";
+import { GenerationTrendReport } from "@/components/chat/GenerationTrendReport";
 import { SolarAvatar } from "@/components/common";
 
 interface MessageBubbleProps {
@@ -40,6 +41,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         {/* 역산 계산 결과 표시 (Phase 2) */}
         {!isUser && message.reverseCalculationResult && (
           <ReverseReport result={message.reverseCalculationResult} />
+        )}
+
+        {/* 발전량 추이 조회 결과 표시 */}
+        {!isUser && message.generationTrendResult && (
+          <GenerationTrendReport result={message.generationTrendResult} />
         )}
 
         {/* 차단 메시지 표시 */}

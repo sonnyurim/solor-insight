@@ -142,6 +142,14 @@ function createBotMessageFromResult(result: ChatProcessResult): Message {
     });
   }
 
+  // 발전량 추이 조회 결과
+  if (result.generationTrendResult) {
+    return createBotMessage(result.message || "발전량 추이를 조회했습니다.", {
+      classification: result.classification,
+      generationTrendResult: result.generationTrendResult,
+    });
+  }
+
   // 일반 응답
   return createBotMessage(result.message || "응답을 생성했습니다.", {
     classification: result.classification,

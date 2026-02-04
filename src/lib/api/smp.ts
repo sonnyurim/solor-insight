@@ -66,8 +66,6 @@ export class SmpApiRepository implements ISmpRepository {
       // POST body로 파라미터 전송
       const postData = `beginDate=${beginDateStr}&endDate=${endDateStr}&selKind=${selKind}`;
 
-      console.log(`SMP API 호출: ${SMP_API_URL} (${region})`);
-
       const res = await fetch(SMP_API_URL, {
         method: "POST",
         headers: {
@@ -78,12 +76,6 @@ export class SmpApiRepository implements ISmpRepository {
       });
 
       if (!res.ok) {
-        console.warn(
-          "SMP API 응답 오류:",
-          res.status,
-          res.statusText,
-          "- 기본값 사용"
-        );
         return null;
       }
 
@@ -95,7 +87,6 @@ export class SmpApiRepository implements ISmpRepository {
         htmlText.includes("장애") ||
         htmlText.includes("에러가 발생")
       ) {
-        console.warn("SMP API 서버 점검/장애 중 - 기본값 사용");
         return null;
       }
 
@@ -103,7 +94,6 @@ export class SmpApiRepository implements ISmpRepository {
       const weightedAverages = parseWeightedAverages(htmlText);
 
       if (weightedAverages.length === 0) {
-        console.warn("SMP API 데이터 없음 - 기본값 사용");
         return null;
       }
 
@@ -111,7 +101,6 @@ export class SmpApiRepository implements ISmpRepository {
       const validPrices = weightedAverages.filter((price) => price > 0);
 
       if (validPrices.length === 0) {
-        console.warn("SMP API 유효 데이터 없음 (0원 제외) - 기본값 사용");
         return null;
       }
 
@@ -120,11 +109,8 @@ export class SmpApiRepository implements ISmpRepository {
 
       const roundedPrice = Math.round(avgPrice * 100) / 100;
 
-      console.log(`SMP 1개월 평균 (${region}): ${roundedPrice}원/kWh`);
-
       return roundedPrice;
-    } catch (error) {
-      console.error("SMP API 호출 오류:", error);
+    } catch {
       return null;
     }
   }
@@ -182,8 +168,7 @@ export class SmpApiRepository implements ISmpRepository {
         region,
         dataCount: validPrices.length,
       };
-    } catch (error) {
-      console.error("SMP API 호출 오류:", error);
+    } catch {
       return null;
     }
   }

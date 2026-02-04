@@ -7,6 +7,7 @@ import type {
   ClassificationResult,
   RevenueCalculationResult,
   ReverseCalculationResult,
+  GenerationTrendResultData,
   GuardrailType,
   IntentType,
   ConfidenceLevel,
@@ -14,6 +15,8 @@ import type {
 import { GUARDRAIL_MESSAGES } from "@/lib/chat/types";
 import { classifyIntent } from "@/lib/chat/intent-classifier";
 import { handleCalculatorIntent, type CalculatorHandlerResult } from "./calculator";
+import { handleGenerationTrend } from "./generation-trend";
+import { queryKnowledgeBase } from "./knowledge-base";
 
 // ==================== 타입 정의 ====================
 
@@ -32,6 +35,8 @@ export interface ChatProcessResult {
   calculationResult?: RevenueCalculationResult;
   // 역산 결과 (Phase 2)
   reverseCalculationResult?: ReverseCalculationResult;
+  // 발전량 추이 조회 결과
+  generationTrendResult?: GenerationTrendResultData;
   // 추가 정보 필요
   needsMoreInfo?: boolean;
   followUpQuestion?: string;
@@ -93,7 +98,6 @@ export class ChatService implements IChatService {
       // 4. 의도에 따른 처리
       return this.routeByIntent(message, classificationResult);
     } catch (error) {
-      console.error("ChatService 처리 오류:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "처리 중 오류 발생",
@@ -111,14 +115,21 @@ export class ChatService implements IChatService {
     const intents = classification.intents || ["GENERAL"];
     const isCalculatorOnly =
       intents.includes("CALCULATOR") && intents.length === 1;
+    const isGenerationTrendOnly =
+      intents.includes("GENERATION_TREND") && intents.length === 1;
 
     // CALCULATOR 단독 의도
     if (isCalculatorOnly) {
       return this.handleCalculator(message, classification);
     }
 
-    // 기타 의도 (GENERATION_TREND, PROCEDURE, GENERAL, 복합 의도)
-    return this.handleOtherIntents(classification);
+    // GENERATION_TREND 단독 의도
+    if (isGenerationTrendOnly) {
+      return this.handleGenerationTrendIntent(message, classification);
+    }
+
+    // 기타 의도 (PROCEDURE, GENERAL, 복합 의도)
+    return this.handleOtherIntents(message, classification);
   }
 
   /**
@@ -176,20 +187,88 @@ export class ChatService implements IChatService {
   }
 
   /**
-   * 기타 의도 처리 (추후 구현 예정)
+   * GENERATION_TREND 의도 처리
    */
-  private handleOtherIntents(
+  private async handleGenerationTrendIntent(
+    message: string,
+    classification: ClassificationResult
+  ): Promise<ChatProcessResult> {
+    const result = await handleGenerationTrend(message);
+
+    // 에러 발생 시 (지역 누락 등)
+    if (!result.success) {
+      return {
+        success: true, // 시스템은 정상 동작
+        needsMoreInfo: true,
+        followUpQuestion: result.error,
+        classification: {
+          isMulti: false,
+          intents: ["GENERATION_TREND"],
+          confidence: classification.confidence || "HIGH",
+          reason: "필수 정보 누락",
+        },
+      };
+    }
+
+    // 성공
+    const firstResult = result.results![0];
+    return {
+      success: true,
+      message: `${firstResult.metadata.region} ${firstResult.metadata.season}철 발전량 추이입니다.`,
+      generationTrendResult: {
+        results: result.results!,
+      },
+      classification: {
+        isMulti: false,
+        intents: ["GENERATION_TREND"],
+        confidence: classification.confidence || "HIGH",
+        reason: firstResult.metadata.explanation,
+      },
+    };
+  }
+
+  /**
+   * 기타 의도 처리 (PROCEDURE, GENERAL, 복합 의도)
+   * Knowledge Base RAG를 통해 응답 생성
+   */
+  private async handleOtherIntents(
+    message: string,
+    classification: ClassificationResult
+  ): Promise<ChatProcessResult> {
+    // Knowledge Base에 질의
+    const ragResponse = await queryKnowledgeBase(message);
+
+    // RAG 실패 시 폴백 응답
+    if (!ragResponse.success) {
+      return this.createFallbackResponse(classification);
+    }
+
+    return {
+      success: true,
+      message: ragResponse.answer,
+      classification: {
+        isMulti: classification.isMulti || false,
+        intents: classification.intents || ["GENERAL"],
+        confidence: classification.confidence || "MEDIUM",
+        reason: classification.reason,
+      },
+    };
+  }
+
+  /**
+   * RAG 실패 시 폴백 응답 생성
+   */
+  private createFallbackResponse(
     classification: ClassificationResult
   ): ChatProcessResult {
     const intentNames = classification.intents?.join(", ") || "GENERAL";
-    const isMultiText = classification.isMulti ? " (복합 의도)" : "";
 
     return {
       success: true,
       message:
-        `질문이 [${intentNames}]${isMultiText}로 분류되었습니다.\n\n` +
-        `${classification.reason ? `📝 ${classification.reason}` : ""}\n\n` +
-        `(응답 생성 기능은 추후 구현 예정입니다)`,
+        `죄송합니다. 현재 해당 질문에 대한 답변을 제공하기 어렵습니다.\n\n` +
+        `질문이 [${intentNames}]으로 분류되었으나, 관련 정보를 찾지 못했습니다.\n\n` +
+        `다른 방식으로 질문해 주시거나, 태양광 발전 수익 계산이나 발전량 추이에 대해 문의해 주세요.`,
       classification: {
         isMulti: classification.isMulti || false,
         intents: classification.intents || ["GENERAL"],

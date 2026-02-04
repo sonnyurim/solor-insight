@@ -58,7 +58,6 @@ export async function classifyWithLLM(
 
     return validated;
   } catch (error) {
-    console.error("LLM 분류 실패:", error);
     throw error;
   }
 }
