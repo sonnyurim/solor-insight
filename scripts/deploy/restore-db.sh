@@ -64,7 +64,7 @@ rm -f "$TEMP_SQL"
 
 # Prisma 마이그레이션 적용 (스키마 변경 있을 경우)
 echo -e "${YELLOW}Prisma 마이그레이션 확인...${NC}"
-docker-compose run --rm migrate 2>/dev/null || true
+docker-compose run --rm app node ./node_modules/prisma/build/index.js migrate deploy 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}========================================${NC}"

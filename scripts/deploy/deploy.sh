@@ -101,9 +101,9 @@ done
 
 echo -e "${GREEN}  DB 연결 확인됨${NC}"
 
-# Prisma 마이그레이션 실행 (별도 migrate 서비스 사용)
+# Prisma 마이그레이션 실행
 echo -e "${YELLOW}  Prisma 마이그레이션 실행...${NC}"
-docker-compose run --rm migrate
+docker-compose run --rm app node ./node_modules/prisma/build/index.js migrate deploy
 
 # 나머지 서비스 시작
 docker-compose up -d

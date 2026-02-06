@@ -13,24 +13,14 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-solar_insight}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-solar_insight}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  migrate:
-    image: node:20-alpine
-    working_dir: /app
-    volumes:
-      - ./prisma:/app/prisma
-      - ./package.json:/app/package.json
-      - ./package-lock.json:/app/package-lock.json
-    environment:
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-solar_insight}?schema=public
-    command: sh -c "npm ci --only=production && npx prisma migrate deploy"
-    depends_on:
-      db:
-        condition: service_healthy
 
   app:
     build:
