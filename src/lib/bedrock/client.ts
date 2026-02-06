@@ -10,7 +10,8 @@ let client: BedrockRuntimeClient | null = null;
 
 /**
  * AWS Bedrock Runtime 클라이언트 가져오기
- * 환경변수 기반 인증 사용
+ * - AWS_PROFILE이 있으면: 로컬 개발용 (fromIni 사용)
+ * - AWS_PROFILE이 없으면: EC2 IAM 역할 사용 (기본 credential chain)
  */
 export function getBedrockClient(): BedrockRuntimeClient {
   if (!client) {
@@ -21,13 +22,11 @@ export function getBedrockClient(): BedrockRuntimeClient {
       throw new Error("AWS_REGION 환경변수가 설정되지 않았습니다.");
     }
 
-    if (!profile) {
-      throw new Error("AWS_PROFILE 환경변수가 설정되지 않았습니다.");
-    }
-
+    // 로컬 개발: AWS_PROFILE 사용
+    // EC2: IAM 역할 자동 사용 (credentials 생략)
     client = new BedrockRuntimeClient({
       region,
-      credentials: fromIni({ profile }),
+      ...(profile && { credentials: fromIni({ profile }) }),
     });
   }
   return client;

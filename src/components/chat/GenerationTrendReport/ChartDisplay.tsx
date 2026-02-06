@@ -97,8 +97,8 @@ export function ChartDisplay({
         <span className="w-1 h-4 bg-emerald-500 rounded-full" />
         {chartTitle}
       </h4>
-      <div className="bg-white dark:bg-zinc-900 rounded-lg p-4">
-        <ResponsiveContainer width="100%" height={250}>
+      <div className="bg-white dark:bg-zinc-900 rounded-lg p-4 -mx-2 sm:mx-0">
+        <ResponsiveContainer width="100%" height={320}>
           {chartType === "line" ? (
             <LineChart
               data={chartData}

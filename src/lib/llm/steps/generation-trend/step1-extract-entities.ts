@@ -19,6 +19,7 @@ export interface ExtractedEntities {
   season: string | null;
   year: number | null;
   month: number | null;
+  yearRange: number | null; // "3년" → 3, "5년" → 5 (N년 발전량 추이)
   aggregations: string[];
   isWeekend: boolean | null;
   chartType: 'bar' | 'line' | null;
@@ -39,38 +40,55 @@ const STEP1_SYSTEM_PROMPT = `당신은 태양광 발전량 조회 시스템의 �
 2. season: 계절 (없으면 null)
    - 봄, 여름, 가을, 겨울
    - "봄철", "봄시즌" → "봄"
+   - "겨울철" → "겨울"
 
 3. year: 연도 숫자 (없으면 null)
    - "작년" → 현재년도-1
    - "올해" → 현재년도
    - 명시적 연도: 2024, 2025 등
+   - ⚠️ "N년 추이/발전량" (예: "3년 발전량 추이")에서 N은 year가 아니라 yearRange에 넣어야 합니다
 
 4. month: 월 숫자 (없으면 null)
    - "3월", "3월달" → 3
    - "12월" → 12
 
-5. aggregations: 집계 단위 배열
+5. yearRange: N년간 데이터 조회 (없으면 null)
+   - "3년 발전량 추이" → 3
+   - "5년 추이" → 5
+   - "최근 3년" → 3
+   - 특정 연도(예: "2019년 발전량")는 yearRange가 아닌 year에 넣습니다.
+
+6. aggregations: 집계 단위 배열
    - 시간별/시간대별/24시간 → "hourly"
    - 일별/매일 → "daily"
    - 주별/주간별/매주 → "weekly"
    - 월별/월간별/매월 → "monthly"
+   - 연별/연간별/연도별 → "yearly"
+   - 계절별/분기별/시즌별 → "seasonal"
    - 요일별/요일단위 → "day_of_week"
-   - 없으면 ["hourly"] 기본값
+   - ⚠️ 중요한 판별 규칙:
+     - "2019년 발전량 그래프 추이" → 특정 연도 1년의 데이터 → aggregations: ["monthly"], year: 2019
+     - "3년 발전량 그래프 추이" → N년간 연도별 데이터 → aggregations: ["yearly"], yearRange: 3
+     - "월별 발전량 추이" → aggregations: ["monthly"]
+     - "시간별 발전량 추이" → aggregations: ["hourly"]
+     - "계절별 발전량 추이" → aggregations: ["seasonal"]
+     - "겨울철 발전량 추이" → season: "겨울", aggregations: ["monthly"] (특정 계절의 월별 데이터)
+   - 없으면 ["monthly"] 기본값
 
-6. isWeekend: 주말/평일 필터
+7. isWeekend: 주말/평일 필터
    - 주말 → true
    - 평일 → false
    - 없으면 null
 
-7. chartType: 그래프 유형 (없으면 null)
+8. chartType: 그래프 유형 (없으면 null)
    - 막대 그래프/바 차트/막대 → "bar"
    - 선 그래프/라인 차트/선 → "line"
 
-8. showOnlyAverage: 평균만 표시 여부 (기본값 false)
+9. showOnlyAverage: 평균만 표시 여부 (기본값 false)
    - "평균 발전량", "평균만", "평균값" → true
    - 그 외 → false
 
-9. outputFormat: 출력 형식 (없으면 null)
+10. outputFormat: 출력 형식 (없으면 null)
    - "표로", "테이블로", "리스트로", "목록으로" → "table"
    - "그래프로", "차트로", "시각화" → "chart"
    - 없으면 null
@@ -81,6 +99,7 @@ const STEP1_SYSTEM_PROMPT = `당신은 태양광 발전량 조회 시스템의 �
   "season": "봄",
   "year": null,
   "month": null,
+  "yearRange": null,
   "aggregations": ["hourly"],
   "isWeekend": null,
   "chartType": null,
@@ -145,11 +164,20 @@ function validateAndSanitizeEntities(entities: ExtractedEntities): ExtractedEnti
     }
   }
 
+  // yearRange 검증: 1~10 범위
+  let yearRange = entities.yearRange ?? null;
+  if (yearRange !== null) {
+    if (yearRange < 1 || yearRange > 10) {
+      yearRange = null;
+    }
+  }
+
   return {
     ...entities,
     year,
     month,
     season,
+    yearRange,
   };
 }
 
@@ -162,7 +190,8 @@ function getDefaultEntities(): ExtractedEntities {
     season: null,
     year: null,
     month: null,
-    aggregations: ['hourly'],
+    yearRange: null,
+    aggregations: ['monthly'],
     isWeekend: null,
     chartType: null,
     showOnlyAverage: false,

@@ -142,8 +142,7 @@ async function fetchDayData(date: Date): Promise<ApiResponseItem[]> {
     pageNo: '1',
     numOfRows: '1000', // 17지역 × 24시간 = 408건
     dataType: 'JSON',
-    startDate: dateStr,
-    endDate: dateStr,
+    tradeYmd: dateStr, // 특정 날짜 조회
   })
 
   const response = await fetchWithRetry(`${API_URL}?${params}`)
@@ -240,6 +239,7 @@ async function collectDateRange(startDate: Date, endDate: Date) {
   let processedDays = 0
   let skippedDays = 0
   let totalSaved = 0
+  let consecutiveNoData = 0  // API에서 연속으로 데이터 없는 날 카운터
 
   const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
@@ -257,26 +257,27 @@ async function collectDateRange(startDate: Date, endDate: Date) {
     if (existingCount >= 400) {
       logInfo(`[${dateStr}] 이미 수집됨 (${existingCount}건), 스킵`)
       skippedDays++
+      consecutiveNoData = 0  // 데이터 있으면 리셋
       currentDate = addDays(currentDate, -1)
       continue
     }
 
     try {
       const items = await fetchDayData(currentDate)
-      
+
       if (items.length === 0) {
-        // 연속으로 데이터 없는 날이 7일 이상이면 해당 기간은 데이터 없음으로 간주
-        const noDataDays = await checkConsecutiveNoData(currentDate, startDate)
-        if (noDataDays >= 7) {
-          logInfo(`[${dateStr}] 연속 ${noDataDays}일 데이터 없음 - 이전 기간은 API에서 제공하지 않을 수 있습니다`)
-          // 더 이상 과거로 가지 않고 종료
+        consecutiveNoData++
+        // 연속으로 API에서 데이터 없는 날이 30일 이상이면 종료
+        if (consecutiveNoData >= 30) {
+          logInfo(`[${dateStr}] 연속 ${consecutiveNoData}일 데이터 없음 - 이전 기간은 API에서 제공하지 않을 수 있습니다`)
           break
         }
-        logWarning(`[${dateStr}] 데이터 없음`)
+        logWarning(`[${dateStr}] 데이터 없음 (연속 ${consecutiveNoData}일)`)
         currentDate = addDays(currentDate, -1)
         continue
       }
 
+      consecutiveNoData = 0  // 데이터 받으면 리셋
       const saved = await saveGenerationData(items)
       totalSaved += saved
       processedDays++

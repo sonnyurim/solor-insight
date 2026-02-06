@@ -4,16 +4,30 @@
 
 /**
  * 숫자를 천 단위 콤마가 있는 문자열로 변환
+ * @param num 숫자
+ * @param maxFractionDigits 소수점 자릿수 (기본값: 3)
  */
-export function formatNumber(num: number): string {
-  return num.toLocaleString("ko-KR", { maximumFractionDigits: 3 });
+export function formatNumber(
+  num: number,
+  maxFractionDigits: number = 3,
+): string {
+  return num.toLocaleString("ko-KR", {
+    maximumFractionDigits: maxFractionDigits,
+  });
+}
+
+/**
+ * 퍼센트 표시 (소수점 → 퍼센트)
+ */
+export function formatPercent(rate: number): string {
+  return `${(rate * 100).toFixed(1)}%`;
 }
 
 /**
  * 데이터에서 주요 값 추출
  */
 export function extractMainValue(
-  row: Record<string, unknown>
+  row: Record<string, unknown>,
 ): { label: string; value: number } | null {
   const valueKeys = [
     "avg_power",
@@ -32,9 +46,11 @@ export function extractMainValue(
     "week_of_year",
     "month_name",
     "day_name",
+    "season",
     "hour",
     "week_no",
     "month",
+    "year",
   ];
 
   let value: number | null = null;
@@ -74,6 +90,10 @@ export function getAggregationLabel(aggregation: string): {
       return { xLabel: "주차", chartTitle: "주별 발전량" };
     case "monthly":
       return { xLabel: "월", chartTitle: "월별 발전량" };
+    case "yearly":
+      return { xLabel: "연도", chartTitle: "연도별 발전량" };
+    case "seasonal":
+      return { xLabel: "계절", chartTitle: "계절별 발전량" };
     case "day_of_week":
       return { xLabel: "요일", chartTitle: "요일별 발전량" };
     default:
@@ -94,6 +114,10 @@ export function getXAxisKey(aggregation: string): string {
       return "week_no";
     case "monthly":
       return "month";
+    case "yearly":
+      return "year";
+    case "seasonal":
+      return "season";
     case "day_of_week":
       return "day_name";
     default:
@@ -125,6 +149,15 @@ export function formatXAxisValue(value: unknown, aggregation: string): string {
     return `${value}월`;
   }
 
+  if (aggregation === "yearly" && typeof value === "number") {
+    return `${value}년`;
+  }
+
+  // seasonal은 이미 문자열 ("봄", "여름" 등)
+  if (aggregation === "seasonal" && typeof value === "string") {
+    return value;
+  }
+
   return String(value);
 }
 
@@ -154,7 +187,7 @@ export function getKeyLabels(): Record<string, string> {
  */
 export function extractDataKeys(
   data: Record<string, unknown>[],
-  aggregation: string
+  aggregation: string,
 ): string[] {
   if (data.length === 0) return [];
 
@@ -165,11 +198,16 @@ export function extractDataKeys(
       key.includes("avg") ||
       key.includes("total") ||
       key.includes("min") ||
-      key.includes("max")
+      key.includes("max"),
   );
 
   // 특정 집계에서는 total만 표시
-  if (aggregation === "monthly" || aggregation === "daily") {
+  if (
+    aggregation === "monthly" ||
+    aggregation === "daily" ||
+    aggregation === "yearly" ||
+    aggregation === "seasonal"
+  ) {
     const totalKey = dataKeys.find((k) => k.includes("total"));
     if (totalKey) dataKeys = [totalKey];
   }

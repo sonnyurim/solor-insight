@@ -37,8 +37,7 @@ export interface ISmpRepository {
 
 // ==================== Repository 구현 ====================
 
-const SMP_API_URL =
-  "https://epsis.kpx.or.kr/epsisnew/selectEkmaSmpShd.ajax";
+const SMP_API_URL = "https://epsis.kpx.or.kr/epsisnew/selectEkmaSmpShd.ajax";
 
 /**
  * SMP Repository 구현체
@@ -50,9 +49,7 @@ export class SmpApiRepository implements ISmpRepository {
    * 가중평균(c27) 값들의 평균을 계산
    * Next.js 24시간 캐시 적용
    */
-  async getLatestPrice(
-    region: SmpRegionType = "육지"
-  ): Promise<number | null> {
+  async getLatestPrice(region: SmpRegionType = "육지"): Promise<number | null> {
     try {
       // 1개월 전 날짜 계산
       const endDate = new Date();
@@ -114,64 +111,6 @@ export class SmpApiRepository implements ISmpRepository {
       return null;
     }
   }
-
-  /**
-   * SMP 최근 1개월 데이터 상세 조회 (확장용)
-   */
-  async getLatestPriceDetail(
-    region: SmpRegionType = "육지"
-  ): Promise<SmpPriceResult | null> {
-    try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 1);
-
-      const beginDateStr = formatDateToYYYYMMDD(startDate);
-      const endDateStr = formatDateToYYYYMMDD(endDate);
-      const selKind = region === "제주" ? "jeju" : "land";
-
-      const postData = `beginDate=${beginDateStr}&endDate=${endDateStr}&selKind=${selKind}`;
-
-      const res = await fetch(SMP_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: postData,
-        next: { revalidate: 86400 },
-      });
-
-      if (!res.ok) {
-        return null;
-      }
-
-      const htmlText = await res.text();
-      const weightedAverages = parseWeightedAverages(htmlText);
-
-      if (weightedAverages.length === 0) {
-        return null;
-      }
-
-      const validPrices = weightedAverages.filter((price) => price > 0);
-
-      if (validPrices.length === 0) {
-        return null;
-      }
-
-      const avgPrice =
-        validPrices.reduce((sum, price) => sum + price, 0) / validPrices.length;
-
-      return {
-        price: Math.round(avgPrice * 100) / 100,
-        startDate: beginDateStr,
-        endDate: endDateStr,
-        region,
-        dataCount: validPrices.length,
-      };
-    } catch {
-      return null;
-    }
-  }
 }
 
 // ==================== 유틸리티 ====================
@@ -208,16 +147,4 @@ function parseWeightedAverages(htmlText: string): number[] {
   }
 
   return weightedAverages;
-}
-
-/**
- * SMP 날짜 포맷 변환 (YYYYMMDD → MM/DD)
- */
-export function formatSmpDate(yyyymmdd: string): string {
-  if (!yyyymmdd || yyyymmdd.length !== 8) return "";
-
-  const month = yyyymmdd.slice(4, 6);
-  const day = yyyymmdd.slice(6, 8);
-
-  return `${parseInt(month)}/${parseInt(day)}`;
 }

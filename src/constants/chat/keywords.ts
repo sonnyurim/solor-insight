@@ -17,8 +17,8 @@ export const INTENT_KEYWORDS: Record<
   KeywordDefinition
 > = {
   GENERATION_TREND: {
-    core: ["발전량", "출력"],
-    support: ["추이", "그래프", "현황", "변화", "월별", "연도별", "비교"],
+    core: ["발전량", "출력", "그래프", "차트"],
+    support: ["추이", "현황", "변화", "월별", "연도별", "연간", "연별", "계절별", "시간별", "비교"],
   },
   CALCULATOR: {
     core: ["수익", "계산", "rec", "smp"],

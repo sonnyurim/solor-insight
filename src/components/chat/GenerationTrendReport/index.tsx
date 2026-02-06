@@ -28,6 +28,7 @@ export function GenerationTrendReport({ result }: GenerationTrendReportProps) {
   // 첫 번째 결과의 메타데이터를 기본 정보로 사용
   const firstResult = results[0];
   const { region, season, year, dataType, disclaimer } = firstResult.metadata;
+  const aggregation = firstResult.metadata.aggregations[0];
 
   return (
     <div className="mt-3 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-zinc-800 dark:to-zinc-800 border border-emerald-200 dark:border-zinc-700 overflow-hidden">
@@ -37,6 +38,7 @@ export function GenerationTrendReport({ result }: GenerationTrendReportProps) {
         year={year}
         season={season}
         dataType={dataType}
+        aggregation={aggregation}
       />
 
       <div className="p-4 space-y-6">
@@ -47,9 +49,6 @@ export function GenerationTrendReport({ result }: GenerationTrendReportProps) {
         {results.map((res, resIdx) => (
           <ResultDisplay key={resIdx} result={res} />
         ))}
-
-        {/* 데이터 요약 */}
-        <DataSummary dataCount={firstResult.data.length} />
       </div>
     </div>
   );
@@ -63,12 +62,30 @@ function ReportHeader({
   year,
   season,
   dataType,
+  aggregation,
 }: {
   region: string;
   year: number;
   season: string;
   dataType: string;
+  aggregation?: string;
 }) {
+  // 집계 유형에 따라 기간 표시를 다르게 함
+  const getPeriodLabel = () => {
+    if (aggregation === "yearly") {
+      // yearly는 여러 연도 범위를 보여줌
+      return `${year}년`;
+    }
+    if (aggregation === "seasonal") {
+      return `${year}년 계절별`;
+    }
+    if (aggregation === "monthly") {
+      return `${year}년`;
+    }
+    // hourly, daily, weekly, day_of_week 등은 계절 표시
+    return `${year}년 ${season}`;
+  };
+
   return (
     <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3">
       <div className="flex items-center justify-between">
@@ -90,7 +107,7 @@ function ReportHeader({
         </h3>
         <div className="flex gap-2">
           <span className="px-2 py-1 bg-white/20 text-white text-xs font-medium rounded-full">
-            {year}년 {season}
+            {getPeriodLabel()}
           </span>
           <span
             className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -187,21 +204,5 @@ function ResultDisplay({
       dataKeys={dataKeys}
       chartType={chartType}
     />
-  );
-}
-
-/**
- * 데이터 요약 컴포넌트
- */
-function DataSummary({ dataCount }: { dataCount: number }) {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-      <div className="bg-white dark:bg-zinc-700/50 rounded-lg px-3 py-2 text-center">
-        <span className="text-zinc-500 dark:text-zinc-400">데이터 수</span>
-        <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-          {dataCount}개
-        </p>
-      </div>
-    </div>
   );
 }

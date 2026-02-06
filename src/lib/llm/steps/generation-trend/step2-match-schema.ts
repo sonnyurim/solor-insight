@@ -32,6 +32,8 @@ ${DB_SCHEMA}
 | daily | agg_daily | JOIN regions |
 | weekly | agg_weekly | JOIN regions |
 | monthly | agg_monthly | JOIN regions |
+| yearly | agg_monthly | JOIN regions (연도별 SUM 집계) |
+| seasonal | agg_monthly | JOIN regions (계절별 SUM 집계) |
 | day_of_week | raw_generation | JOIN regions (EXTRACT(DOW FROM trade_date) 사용) |
 
 ## ⚠️ 중요: 지역 필터 규칙
@@ -96,7 +98,7 @@ export async function matchSchema(entities: ExtractedEntities): Promise<SchemaMa
  * 집계 단위 기반 기본 스키마 선택 (fallback)
  */
 function getDefaultSchema(aggregations: string[]): SchemaMatchResult {
-  const agg = aggregations[0] || 'hourly';
+  const agg = aggregations[0] || 'monthly';
 
   if (agg === 'daily') {
     return {
@@ -120,6 +122,24 @@ function getDefaultSchema(aggregations: string[]): SchemaMatchResult {
     return {
       tables: ['agg_monthly', 'regions'],
       columns: ['am.year', 'am.month', 'am.total_kwh', 'am.avg_kwh', 'am.season', 'r.name'],
+      joins: ['JOIN regions r ON am.region_id = r.id'],
+      filters: ['r.name = ?', 'am.year = ?', 'am.is_estimated = ?'],
+    };
+  }
+
+  if (agg === 'yearly') {
+    return {
+      tables: ['agg_monthly', 'regions'],
+      columns: ['am.year', 'SUM(am.total_kwh)', 'AVG(am.avg_kwh)', 'r.name'],
+      joins: ['JOIN regions r ON am.region_id = r.id'],
+      filters: ['r.name = ?', 'am.year IN (...)', 'am.is_estimated = ?'],
+    };
+  }
+
+  if (agg === 'seasonal') {
+    return {
+      tables: ['agg_monthly', 'regions'],
+      columns: ['am.season', 'SUM(am.total_kwh)', 'AVG(am.avg_kwh)', 'r.name'],
       joins: ['JOIN regions r ON am.region_id = r.id'],
       filters: ['r.name = ?', 'am.year = ?', 'am.is_estimated = ?'],
     };

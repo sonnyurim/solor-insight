@@ -1,23 +1,10 @@
 "use client";
 
 import type { RevenueCalculationResult, SourceInfo } from "@/lib/chat/types";
+import { formatNumber, formatPercent } from "../GenerationTrendReport/utils";
 
 interface RevenueReportProps {
   result: RevenueCalculationResult;
-}
-
-/**
- * 숫자를 천 단위 콤마가 있는 문자열로 변환
- */
-function formatNumber(num: number): string {
-  return num.toLocaleString("ko-KR");
-}
-
-/**
- * 퍼센트 표시 (소수점 → 퍼센트)
- */
-function formatPercent(rate: number): string {
-  return `${(rate * 100).toFixed(1)}%`;
 }
 
 /**
@@ -38,8 +25,15 @@ function SourceLabel({ source }: { source?: SourceInfo }) {
 }
 
 export function RevenueReport({ result }: RevenueReportProps) {
-  const { input, generation, revenue, unit_price_per_kwh, disclaimer, region, sources } =
-    result;
+  const {
+    input,
+    generation,
+    revenue,
+    unit_price_per_kwh,
+    disclaimer,
+    region,
+    sources,
+  } = result;
 
   return (
     <div className="mt-3 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-zinc-800 dark:to-zinc-800 border border-amber-200 dark:border-zinc-700 overflow-hidden">

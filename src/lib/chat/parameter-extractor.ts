@@ -1,17 +1,10 @@
 import type {
   ExtractedParameters,
-  ParameterExtractionResult,
   PeriodInfo,
   CalculationMode,
   CalculatorSubIntent,
   ReverseTarget,
 } from "./types";
-import {
-  DEFAULT_UTILIZATION_RATE,
-  DEFAULT_REC_WEIGHT,
-  REQUIRED_PARAMS,
-  PARAM_LABELS,
-} from "@/constants/chat/calculator";
 import { REVERSE_KEYWORDS } from "@/constants/chat/keywords";
 import { REVERSE_PHRASES } from "@/constants/chat/phrases";
 
@@ -165,10 +158,7 @@ export function extractPeriod(text: string): PeriodInfo | null {
   const normalizedText = text.toLowerCase();
 
   // N년 패턴: "20년", "10년간", "5년 동안"
-  const yearPatterns = [
-    /(\d+)\s*년\s*(?:간|동안|총)?/,
-    /(\d+)\s*(?:개)?년/,
-  ];
+  const yearPatterns = [/(\d+)\s*년\s*(?:간|동안|총)?/, /(\d+)\s*(?:개)?년/];
   for (const pattern of yearPatterns) {
     const match = normalizedText.match(pattern);
     if (match) {
@@ -177,9 +167,7 @@ export function extractPeriod(text: string): PeriodInfo | null {
   }
 
   // N개월 패턴: "3개월", "6개월간"
-  const monthPatterns = [
-    /(\d+)\s*개월\s*(?:간|동안)?/,
-  ];
+  const monthPatterns = [/(\d+)\s*개월\s*(?:간|동안)?/];
   for (const pattern of monthPatterns) {
     const match = normalizedText.match(pattern);
     if (match) {
@@ -188,9 +176,7 @@ export function extractPeriod(text: string): PeriodInfo | null {
   }
 
   // N일 패턴: "30일", "7일간"
-  const dayPatterns = [
-    /(\d+)\s*일\s*(?:간|동안)?/,
-  ];
+  const dayPatterns = [/(\d+)\s*일\s*(?:간|동안)?/];
   for (const pattern of dayPatterns) {
     const match = normalizedText.match(pattern);
     if (match) {
@@ -227,7 +213,11 @@ export function extractCalculationMode(text: string): CalculationMode {
   }
 
   // REC만 계산
-  if (/rec\s*(?:수익|매출)?\s*만|rec만|렉\s*(?:수익|매출)?\s*만/.test(normalizedText)) {
+  if (
+    /rec\s*(?:수익|매출)?\s*만|rec만|렉\s*(?:수익|매출)?\s*만/.test(
+      normalizedText,
+    )
+  ) {
     return "rec_only";
   }
 
@@ -369,78 +359,5 @@ export function extractParameters(text: string): ExtractedParameters {
     calculationMode: extractCalculationMode(normalizedText),
     subIntent,
     reverseTarget: reverseTarget ?? undefined,
-  };
-}
-
-/**
- * 누락된 필수 파라미터 확인
- */
-function getMissingParams(extracted: ExtractedParameters): string[] {
-  const missing: string[] = [];
-
-  for (const param of REQUIRED_PARAMS) {
-    if (extracted[param] === undefined) {
-      missing.push(param);
-    }
-  }
-
-  return missing;
-}
-
-/**
- * 추가 질문 메시지 생성
- */
-function generateFollowUpQuestion(missing: string[]): string {
-  const missingLabels = missing.map((p) => PARAM_LABELS[p] || p);
-
-  // 설비용량만 누락된 경우 (일반적인 케이스)
-  if (missing.length === 1 && missing[0] === "capacity_kw") {
-    return (
-      "설비 용량을 알려주세요!\n\n" +
-      "📌 필수: 설비 용량 (예: 100kW)\n" +
-      "📌 선택: REC 단가, SMP 단가, 지역(제주/육지)\n\n" +
-      "▶ 예시\n" +
-      "• \"100kW 수익 계산해줘\" → 육지 기준, 최신 시세로 계산\n" +
-      "• \"100kW 제주 계산해줘\" → 제주 기준, 최신 시세로 계산\n" +
-      "• \"REC 4만원, SMP 110원으로 100kW 계산해줘\" → 입력한 단가로 계산"
-    );
-  }
-
-  if (missing.length === 1) {
-    return `수익 계산을 위해 ${missingLabels[0]}을(를) 알려주세요.`;
-  }
-
-  const lastLabel = missingLabels.pop();
-  return `수익 계산을 위해 ${missingLabels.join(", ")}과(와) ${lastLabel}을(를) 알려주세요.`;
-}
-
-/**
- * 파라미터 추출 및 완전성 검사
- */
-export function extractAndValidateParameters(
-  text: string
-): ParameterExtractionResult {
-  const extracted = extractParameters(text);
-  const missing = getMissingParams(extracted);
-
-  if (missing.length > 0) {
-    return {
-      complete: false,
-      missing,
-      extracted,
-      followUpQuestion: generateFollowUpQuestion(missing),
-    };
-  }
-
-  // 모든 필수값이 있으면 기본값 적용
-  return {
-    complete: true,
-    params: {
-      rec_price: extracted.rec_price!,
-      smp_price: extracted.smp_price!,
-      capacity_kw: extracted.capacity_kw!,
-      utilization_rate: extracted.utilization_rate ?? DEFAULT_UTILIZATION_RATE,
-      rec_weight: extracted.rec_weight ?? DEFAULT_REC_WEIGHT,
-    },
   };
 }

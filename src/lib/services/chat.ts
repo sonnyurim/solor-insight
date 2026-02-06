@@ -11,12 +11,17 @@ import type {
   GuardrailType,
   IntentType,
   ConfidenceLevel,
+  RAGCitation,
 } from "@/lib/chat/types";
 import { GUARDRAIL_MESSAGES } from "@/lib/chat/types";
 import { classifyIntent } from "@/lib/chat/intent-classifier";
-import { handleCalculatorIntent, type CalculatorHandlerResult } from "./calculator";
+import {
+  handleCalculatorIntent,
+  type CalculatorHandlerResult,
+} from "./calculator";
 import { handleGenerationTrend } from "./generation-trend";
 import { queryKnowledgeBase } from "./knowledge-base";
+import type { ChatHistoryMessage } from "@/lib/chat/actions";
 
 // ==================== 타입 정의 ====================
 
@@ -37,6 +42,8 @@ export interface ChatProcessResult {
   reverseCalculationResult?: ReverseCalculationResult;
   // 발전량 추이 조회 결과
   generationTrendResult?: GenerationTrendResultData;
+  // RAG 인용 출처
+  citations?: RAGCitation[];
   // 추가 정보 필요
   needsMoreInfo?: boolean;
   followUpQuestion?: string;
@@ -57,7 +64,10 @@ export interface ChatProcessResult {
  * 채팅 서비스 인터페이스
  */
 export interface IChatService {
-  processMessage(message: string): Promise<ChatProcessResult>;
+  processMessage(
+    message: string,
+    history?: ChatHistoryMessage[],
+  ): Promise<ChatProcessResult>;
 }
 
 // ==================== 서비스 구현 ====================
@@ -69,8 +79,13 @@ export interface IChatService {
 export class ChatService implements IChatService {
   /**
    * 메시지 처리 메인 진입점
+   * @param message - 사용자 메시지
+   * @param history - 최근 대화 기록 (최대 6개, 3턴)
    */
-  async processMessage(message: string): Promise<ChatProcessResult> {
+  async processMessage(
+    message: string,
+    history?: ChatHistoryMessage[],
+  ): Promise<ChatProcessResult> {
     try {
       // 1. 의도 분류
       const classificationResult = await classifyIntent(message);
@@ -95,8 +110,8 @@ export class ChatService implements IChatService {
         };
       }
 
-      // 4. 의도에 따른 처리
-      return this.routeByIntent(message, classificationResult);
+      // 4. 의도에 따른 처리 (대화 기록 포함)
+      return this.routeByIntent(message, classificationResult, history);
     } catch (error) {
       return {
         success: false,
@@ -110,7 +125,8 @@ export class ChatService implements IChatService {
    */
   private async routeByIntent(
     message: string,
-    classification: ClassificationResult
+    classification: ClassificationResult,
+    history?: ChatHistoryMessage[],
   ): Promise<ChatProcessResult> {
     const intents = classification.intents || ["GENERAL"];
     const isCalculatorOnly =
@@ -128,8 +144,8 @@ export class ChatService implements IChatService {
       return this.handleGenerationTrendIntent(message, classification);
     }
 
-    // 기타 의도 (PROCEDURE, GENERAL, 복합 의도)
-    return this.handleOtherIntents(message, classification);
+    // 기타 의도 (PROCEDURE, GENERAL, 복합 의도) - 대화 기록 포함
+    return this.handleOtherIntents(message, classification, history);
   }
 
   /**
@@ -137,7 +153,7 @@ export class ChatService implements IChatService {
    */
   private async handleCalculator(
     message: string,
-    classification: ClassificationResult
+    classification: ClassificationResult,
   ): Promise<ChatProcessResult> {
     const calcResult: CalculatorHandlerResult =
       await handleCalculatorIntent(message);
@@ -191,7 +207,7 @@ export class ChatService implements IChatService {
    */
   private async handleGenerationTrendIntent(
     message: string,
-    classification: ClassificationResult
+    classification: ClassificationResult,
   ): Promise<ChatProcessResult> {
     const result = await handleGenerationTrend(message);
 
@@ -212,9 +228,20 @@ export class ChatService implements IChatService {
 
     // 성공
     const firstResult = result.results![0];
+    const agg = firstResult.metadata.aggregations[0];
+    const aggLabels: Record<string, string> = {
+      hourly: '시간별',
+      daily: '일별',
+      weekly: '주별',
+      monthly: '월별',
+      yearly: '연도별',
+      seasonal: '계절별',
+      day_of_week: '요일별',
+    };
+    const aggLabel = aggLabels[agg] ?? '';
     return {
       success: true,
-      message: `${firstResult.metadata.region} ${firstResult.metadata.season}철 발전량 추이입니다.`,
+      message: `${firstResult.metadata.region} ${aggLabel} 발전량 추이입니다.`,
       generationTrendResult: {
         results: result.results!,
       },
@@ -233,19 +260,21 @@ export class ChatService implements IChatService {
    */
   private async handleOtherIntents(
     message: string,
-    classification: ClassificationResult
+    classification: ClassificationResult,
+    history?: ChatHistoryMessage[],
   ): Promise<ChatProcessResult> {
-    // Knowledge Base에 질의
-    const ragResponse = await queryKnowledgeBase(message);
+    // Knowledge Base에 질의 (대화 기록 포함)
+    const ragResponse = await queryKnowledgeBase(message, history);
 
-    // RAG 실패 시 폴백 응답
+    // RAG 실패 시 폴백 응답 (에러 정보 포함)
     if (!ragResponse.success) {
-      return this.createFallbackResponse(classification);
+      return this.createFallbackResponse(classification, ragResponse.error);
     }
 
     return {
       success: true,
       message: ragResponse.answer,
+      citations: ragResponse.citations,
       classification: {
         isMulti: classification.isMulti || false,
         intents: classification.intents || ["GENERAL"],
@@ -259,16 +288,24 @@ export class ChatService implements IChatService {
    * RAG 실패 시 폴백 응답 생성
    */
   private createFallbackResponse(
-    classification: ClassificationResult
+    classification: ClassificationResult,
+    errorMessage?: string,
   ): ChatProcessResult {
     const intentNames = classification.intents?.join(", ") || "GENERAL";
+
+    // 개발 환경에서는 에러 메시지 포함
+    const debugInfo =
+      process.env.NODE_ENV === "development" && errorMessage
+        ? `\n\n[DEBUG] ${errorMessage}`
+        : "";
 
     return {
       success: true,
       message:
         `죄송합니다. 현재 해당 질문에 대한 답변을 제공하기 어렵습니다.\n\n` +
         `질문이 [${intentNames}]으로 분류되었으나, 관련 정보를 찾지 못했습니다.\n\n` +
-        `다른 방식으로 질문해 주시거나, 태양광 발전 수익 계산이나 발전량 추이에 대해 문의해 주세요.`,
+        `다른 방식으로 질문해 주시거나, 태양광 발전 수익 계산이나 발전량 추이에 대해 문의해 주세요.` +
+        debugInfo,
       classification: {
         isMulti: classification.isMulti || false,
         intents: classification.intents || ["GENERAL"],

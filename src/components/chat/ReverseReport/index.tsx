@@ -1,23 +1,10 @@
 "use client";
 
 import type { ReverseCalculationResult, SourceInfo } from "@/lib/chat/types";
+import { formatNumber, formatPercent } from "../GenerationTrendReport/utils";
 
 interface ReverseReportProps {
   result: ReverseCalculationResult;
-}
-
-/**
- * 숫자를 천 단위 콤마가 있는 문자열로 변환
- */
-function formatNumber(num: number): string {
-  return num.toLocaleString("ko-KR");
-}
-
-/**
- * 퍼센트 표시 (소수점 → 퍼센트)
- */
-function formatPercent(rate: number): string {
-  return `${(rate * 100).toFixed(1)}%`;
 }
 
 /**
@@ -25,7 +12,7 @@ function formatPercent(rate: number): string {
  */
 function getPeriodLabel(
   type: "daily" | "monthly" | "yearly",
-  count: number
+  count: number,
 ): string {
   switch (type) {
     case "daily":

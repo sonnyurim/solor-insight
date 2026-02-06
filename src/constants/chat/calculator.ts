@@ -2,7 +2,6 @@
 
 // 기본값
 export const DEFAULT_UTILIZATION_RATE = 0.15; // 기본 이용률 15%
-export const DEFAULT_REC_WEIGHT = 1.2; // 기본 REC 가중치
 
 // 폴백용 기본값
 export const DEFAULT_SMP = 110; // 원/kWh (DB 조회 실패 시)
@@ -36,13 +35,6 @@ export const DISCLAIMER =
 
 // 필수 파라미터 목록 (폴백 로직 적용 - 용량만 필수)
 export const REQUIRED_PARAMS = ["capacity_kw"] as const;
-
-// 기존 필수 파라미터 목록 (폴백 미적용 시)
-export const REQUIRED_PARAMS_LEGACY = [
-  "rec_price",
-  "smp_price",
-  "capacity_kw",
-] as const;
 
 // 파라미터 한글 이름 매핑
 export const PARAM_LABELS: Record<string, string> = {

@@ -61,6 +61,7 @@ export interface Message {
   calculationResult?: RevenueCalculationResult;
   reverseCalculationResult?: ReverseCalculationResult; // Phase 2: 역산 결과
   generationTrendResult?: GenerationTrendResultData; // 발전량 추이 조회 결과
+  citations?: RAGCitation[]; // RAG 인용 출처
 }
 
 // 분류 결과 (Server Action 반환)
@@ -243,7 +244,7 @@ export interface ReverseCalculationResult {
 // ==================== 발전량 추이 조회 타입 ====================
 
 // 집계 유형
-export type AggregationType = "hourly" | "daily" | "weekly" | "monthly" | "day_of_week";
+export type AggregationType = "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "seasonal" | "day_of_week";
 
 // 데이터 유형 (실측/추정)
 export type GenerationDataType = "actual" | "estimated";
@@ -297,6 +298,7 @@ export interface CalculatorProcessResult {
 export interface RAGCitation {
   text: string;
   sourceUri?: string;
+  pageNumber?: number; // PDF 페이지 번호 (AWS Bedrock KB 메타데이터)
 }
 
 // RAG 응답

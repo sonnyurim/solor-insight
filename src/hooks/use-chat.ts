@@ -6,7 +6,7 @@ import {
   createUserMessage,
   createBotMessage,
 } from "@/contexts/chat-context";
-import { processMessageApi } from "@/lib/chat/actions";
+import { processMessageApi, type ChatHistoryMessage } from "@/lib/chat/actions";
 import type { ChatProcessResult } from "@/lib/services/chat";
 import type { Message } from "@/lib/chat/types";
 
@@ -39,7 +39,7 @@ export function useChat(): UseChatReturn {
   /**
    * 메시지 전송
    * 1. 사용자 메시지 추가
-   * 2. Server Action 호출
+   * 2. Server Action 호출 (최근 대화 기록 포함)
    * 3. 응답에 따른 봇 메시지 생성
    */
   const sendMessage = useCallback(
@@ -47,14 +47,22 @@ export function useChat(): UseChatReturn {
       // 에러 초기화
       dispatch({ type: "SET_ERROR", payload: null });
 
+      // 최근 6개 메시지 추출 (3턴) - 현재 메시지 추가 전 상태
+      const recentHistory: ChatHistoryMessage[] = state.messages
+        .slice(-6)
+        .map((m) => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.content,
+        }));
+
       // 1. 사용자 메시지 추가
       const userMessage = createUserMessage(content);
       dispatch({ type: "ADD_MESSAGE", payload: userMessage });
       dispatch({ type: "SET_LOADING", payload: true });
 
       try {
-        // 2. Server Action 호출 (비즈니스 로직 위임)
-        const result = await processMessageApi(content);
+        // 2. Server Action 호출 (대화 기록 포함)
+        const result = await processMessageApi(content, recentHistory);
 
         // 3. 결과에 따른 봇 메시지 생성
         const botMessage = createBotMessageFromResult(result);
@@ -66,19 +74,21 @@ export function useChat(): UseChatReturn {
         }
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
+          err instanceof Error
+            ? err.message
+            : "알 수 없는 오류가 발생했습니다.";
         dispatch({ type: "SET_ERROR", payload: errorMessage });
 
         // 에러 메시지 추가
         const errorBotMessage = createBotMessage(
-          "죄송합니다. 처리 중 오류가 발생했습니다."
+          "죄송합니다. 처리 중 오류가 발생했습니다.",
         );
         dispatch({ type: "ADD_MESSAGE", payload: errorBotMessage });
       } finally {
         dispatch({ type: "SET_LOADING", payload: false });
       }
     },
-    [dispatch]
+    [dispatch, state.messages],
   );
 
   /**
@@ -110,10 +120,13 @@ function createBotMessageFromResult(result: ChatProcessResult): Message {
 
   // 차단됨
   if (result.blocked) {
-    return createBotMessage(result.blockMessage || "요청을 처리할 수 없습니다.", {
-      blocked: true,
-      blockType: result.blockType,
-    });
+    return createBotMessage(
+      result.blockMessage || "요청을 처리할 수 없습니다.",
+      {
+        blocked: true,
+        blockType: result.blockType,
+      },
+    );
   }
 
   // 추가 정보 필요
@@ -122,7 +135,7 @@ function createBotMessageFromResult(result: ChatProcessResult): Message {
       result.followUpQuestion || "추가 정보가 필요합니다.",
       {
         classification: result.classification,
-      }
+      },
     );
   }
 
@@ -153,5 +166,6 @@ function createBotMessageFromResult(result: ChatProcessResult): Message {
   // 일반 응답
   return createBotMessage(result.message || "응답을 생성했습니다.", {
     classification: result.classification,
+    citations: result.citations,
   });
 }

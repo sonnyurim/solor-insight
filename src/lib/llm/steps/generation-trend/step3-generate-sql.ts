@@ -125,10 +125,71 @@ SELECT am.month,
   am.season
 FROM agg_monthly am
 JOIN regions r ON am.region_id = r.id
-WHERE r.name = $1 
+WHERE r.name = $1
   AND am.year = $2
   AND am.is_estimated = $3
 ORDER BY am.month
+
+### daily (계절 필터)
+SELECT ad.date,
+  ROUND(ad.total_kwh::numeric, 3) as total_kwh,
+  ROUND(ad.avg_kwh::numeric, 3) as avg_kwh
+FROM agg_daily ad
+JOIN regions r ON ad.region_id = r.id
+WHERE r.name = $1
+  AND EXTRACT(YEAR FROM ad.date) = $2
+  AND EXTRACT(MONTH FROM ad.date) IN (3, 4, 5)  -- 봄: 3,4,5
+  AND ad.is_estimated = $3
+ORDER BY ad.date
+
+### weekly (계절 필터)
+SELECT aw.week_no, aw.start_date, aw.end_date,
+  ROUND(aw.total_kwh::numeric, 3) as total_kwh,
+  ROUND(aw.avg_kwh::numeric, 3) as avg_kwh
+FROM agg_weekly aw
+JOIN regions r ON aw.region_id = r.id
+WHERE r.name = $1
+  AND aw.year = $2
+  AND EXTRACT(MONTH FROM aw.start_date) IN (3, 4, 5)  -- 봄: 3,4,5
+  AND aw.is_estimated = $3
+ORDER BY aw.week_no
+
+### monthly (계절 필터)
+SELECT am.month,
+  ROUND(am.total_kwh::numeric, 3) as total_kwh,
+  ROUND(am.avg_kwh::numeric, 3) as avg_kwh,
+  am.season
+FROM agg_monthly am
+JOIN regions r ON am.region_id = r.id
+WHERE r.name = $1
+  AND am.year = $2
+  AND am.month IN (3, 4, 5)  -- 봄: 3,4,5
+  AND am.is_estimated = $3
+ORDER BY am.month
+
+### yearly (연도별) - agg_monthly에서 연도별 SUM 집계
+SELECT am.year,
+  ROUND(SUM(am.total_kwh)::numeric, 3) as total_kwh,
+  ROUND(AVG(am.avg_kwh)::numeric, 3) as avg_kwh
+FROM agg_monthly am
+JOIN regions r ON am.region_id = r.id
+WHERE r.name = $1
+  AND am.year BETWEEN $2 AND $3
+  AND am.is_estimated = $4
+GROUP BY am.year
+ORDER BY am.year
+
+### seasonal (계절별) - agg_monthly에서 계절별 SUM 집계
+SELECT am.season,
+  ROUND(SUM(am.total_kwh)::numeric, 3) as total_kwh,
+  ROUND(AVG(am.avg_kwh)::numeric, 3) as avg_kwh
+FROM agg_monthly am
+JOIN regions r ON am.region_id = r.id
+WHERE r.name = $1
+  AND am.year = $2
+  AND am.is_estimated = $3
+GROUP BY am.season
+ORDER BY CASE am.season WHEN '봄' THEN 1 WHEN '여름' THEN 2 WHEN '가을' THEN 3 WHEN '겨울' THEN 4 END
 
 ### day_of_week (요일별)
 SELECT EXTRACT(DOW FROM rg.trade_date)::int as day_of_week,
@@ -144,7 +205,7 @@ SELECT EXTRACT(DOW FROM rg.trade_date)::int as day_of_week,
   ROUND(AVG(rg.generation_kwh)::numeric, 3) as avg_kwh
 FROM raw_generation rg
 JOIN regions r ON rg.region_id = r.id
-WHERE r.name = $1 
+WHERE r.name = $1
   AND EXTRACT(YEAR FROM rg.trade_date) = $2
   AND rg.is_estimated = $3
 GROUP BY EXTRACT(DOW FROM rg.trade_date)
@@ -352,7 +413,7 @@ function getFallbackSql(
   const regionName = entities.regions[0] || '';
   const year = entities.year || new Date().getFullYear();
   const isEstimated = schema.filters?.some(f => f.includes('is_estimated = true')) ?? false;
-  const aggregation = entities.aggregations[0] || 'hourly';
+  const aggregation = entities.aggregations[0] || 'monthly';
   const season = entities.season;
 
   // 계절 필터 조건 생성
@@ -363,26 +424,63 @@ function getFallbackSql(
   }
 
   switch (aggregation) {
-    case 'daily':
+    case 'daily': {
+      let dailySeasonCondition = '';
+      if (season && SEASON_MONTHS[season]) {
+        const months = SEASON_MONTHS[season];
+        dailySeasonCondition = ` AND EXTRACT(MONTH FROM ad.date) IN (${months.join(', ')})`;
+      }
       return {
-        sql: `SELECT ad.date, ROUND(ad.total_kwh::numeric, 3) as total_kwh, ROUND(ad.avg_kwh::numeric, 3) as avg_kwh FROM agg_daily ad JOIN regions r ON ad.region_id = r.id WHERE r.name = $1 AND EXTRACT(YEAR FROM ad.date) = $2 AND ad.is_estimated = $3 ORDER BY ad.date`,
+        sql: `SELECT ad.date, ROUND(ad.total_kwh::numeric, 3) as total_kwh, ROUND(ad.avg_kwh::numeric, 3) as avg_kwh FROM agg_daily ad JOIN regions r ON ad.region_id = r.id WHERE r.name = $1 AND EXTRACT(YEAR FROM ad.date) = $2 AND ad.is_estimated = $3${dailySeasonCondition} ORDER BY ad.date`,
         params: [regionName, year, isEstimated],
-        explanation: `${regionName}의 ${year}년 일별 발전량 조회 (Fallback)`,
+        explanation: `${regionName}의 ${year}년${season ? ` ${season}철` : ''} 일별 발전량 조회 (Fallback)`,
       };
+    }
 
-    case 'weekly':
+    case 'weekly': {
+      let weeklySeasonCondition = '';
+      if (season && SEASON_MONTHS[season]) {
+        const months = SEASON_MONTHS[season];
+        weeklySeasonCondition = ` AND EXTRACT(MONTH FROM aw.start_date) IN (${months.join(', ')})`;
+      }
       return {
-        sql: `SELECT aw.week_no, aw.start_date, aw.end_date, ROUND(aw.total_kwh::numeric, 3) as total_kwh, ROUND(aw.avg_kwh::numeric, 3) as avg_kwh FROM agg_weekly aw JOIN regions r ON aw.region_id = r.id WHERE r.name = $1 AND aw.year = $2 AND aw.is_estimated = $3 ORDER BY aw.week_no`,
+        sql: `SELECT aw.week_no, aw.start_date, aw.end_date, ROUND(aw.total_kwh::numeric, 3) as total_kwh, ROUND(aw.avg_kwh::numeric, 3) as avg_kwh FROM agg_weekly aw JOIN regions r ON aw.region_id = r.id WHERE r.name = $1 AND aw.year = $2 AND aw.is_estimated = $3${weeklySeasonCondition} ORDER BY aw.week_no`,
         params: [regionName, year, isEstimated],
-        explanation: `${regionName}의 ${year}년 주별 발전량 조회 (Fallback)`,
+        explanation: `${regionName}의 ${year}년${season ? ` ${season}철` : ''} 주별 발전량 조회 (Fallback)`,
       };
+    }
 
-    case 'monthly':
+    case 'monthly': {
+      let monthlySeasonCondition = '';
+      if (season && SEASON_MONTHS[season]) {
+        const months = SEASON_MONTHS[season];
+        monthlySeasonCondition = ` AND am.month IN (${months.join(', ')})`;
+      }
       return {
-        sql: `SELECT am.month, ROUND(am.total_kwh::numeric, 3) as total_kwh, ROUND(am.avg_kwh::numeric, 3) as avg_kwh, am.season FROM agg_monthly am JOIN regions r ON am.region_id = r.id WHERE r.name = $1 AND am.year = $2 AND am.is_estimated = $3 ORDER BY am.month`,
+        sql: `SELECT am.month, ROUND(am.total_kwh::numeric, 3) as total_kwh, ROUND(am.avg_kwh::numeric, 3) as avg_kwh, am.season FROM agg_monthly am JOIN regions r ON am.region_id = r.id WHERE r.name = $1 AND am.year = $2 AND am.is_estimated = $3${monthlySeasonCondition} ORDER BY am.month`,
         params: [regionName, year, isEstimated],
-        explanation: `${regionName}의 ${year}년 월별 발전량 조회 (Fallback)`,
+        explanation: `${regionName}의 ${year}년${season ? ` ${season}철` : ''} 월별 발전량 조회 (Fallback)`,
       };
+    }
+
+    case 'yearly': {
+      const yearRange = entities.yearRange || 3;
+      const endYear = year;
+      const startYear = endYear - yearRange + 1;
+      return {
+        sql: `SELECT am.year, ROUND(SUM(am.total_kwh)::numeric, 3) as total_kwh, ROUND(AVG(am.avg_kwh)::numeric, 3) as avg_kwh FROM agg_monthly am JOIN regions r ON am.region_id = r.id WHERE r.name = $1 AND am.year BETWEEN $2 AND $3 AND am.is_estimated = $4 GROUP BY am.year ORDER BY am.year`,
+        params: [regionName, startYear, endYear, isEstimated],
+        explanation: `${regionName}의 ${startYear}~${endYear}년 연도별 발전량 조회 (Fallback)`,
+      };
+    }
+
+    case 'seasonal': {
+      return {
+        sql: `SELECT am.season, ROUND(SUM(am.total_kwh)::numeric, 3) as total_kwh, ROUND(AVG(am.avg_kwh)::numeric, 3) as avg_kwh FROM agg_monthly am JOIN regions r ON am.region_id = r.id WHERE r.name = $1 AND am.year = $2 AND am.is_estimated = $3 GROUP BY am.season ORDER BY CASE am.season WHEN '봄' THEN 1 WHEN '여름' THEN 2 WHEN '가을' THEN 3 WHEN '겨울' THEN 4 END`,
+        params: [regionName, year, isEstimated],
+        explanation: `${regionName}의 ${year}년 계절별 발전량 조회 (Fallback)`,
+      };
+    }
 
     case 'day_of_week':
       return {
